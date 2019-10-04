@@ -9,9 +9,9 @@ clear all
 clc
 
 
-%% 5
-% simplifeid version of blocks 3&4 that also adds an output array that
-% contains the names of the stations
+%% 1 
+%NOTE: this step should only need to be run once to convert files from
+%excel to csv format.
 clc
 folderName = 'Weather'; %variable for easy change of folder name
 folderInfo = dir(folderName);  %creates a structure array with all the file names in "folderName"
