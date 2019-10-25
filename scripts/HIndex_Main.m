@@ -105,6 +105,7 @@ timeHindex = toc
 %create a C-Index
 clc
 tic
+stationLength = length(stationNames);
 %stationLength = 1;
  %calls the path of the current file directory
 CIndex = (1890:2019)';
@@ -179,7 +180,7 @@ clc
 tic
 %stationLength = 1;
  %calls the path of the current file directory
-
+stationLength = length(stationNames);
 WIndex = (1890:2019)';
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
@@ -253,7 +254,7 @@ clc
 tic
 %stationLength = 1;
  %calls the path of the current file directory
-
+stationLength = length(stationNames);
 DIndex = (1890:2019)';
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
@@ -266,7 +267,8 @@ for i = 1:stationLength %for each station
     counter = 0;
     for j = temporaryDIndex.YEAR(1):temporaryDIndex.YEAR(end)%for each year at this station
             year = temporaryFile(temporaryFile.YEAR==j,:); %locates the index values for the given year and creates a temporary matrix for the given year       
-            currentDryPeriod = 0; 
+            currentDryPeriod = 0;
+            tempDryPeriod = 0;
             for D = 1:height(year) %this loop identifies the longest dry period for the given year               
                 if year.RAIN(D) < 1
                     tempDryPeriod = tempDryPeriod + 1;
@@ -308,7 +310,7 @@ for i = 1:stationLength %for each station
     end  
 end
 timeDIndex = toc;
-%%
+
 figure('Name', 'D-Index')
 for i = 1:stationLength %for each station in station names
     %this section creates an array of subplots where each station has it
@@ -327,7 +329,7 @@ for i = 1:stationLength %for each station in station names
     xlabel('Year')
     xlim([1890 2014])
     ylabel('D-Index')
-    ylim([0 15])
+    ylim([5 15])
     %this section  creates a table of the station names and the slope for
     %each trend line
     p = polyfit(x,y,1);
@@ -335,4 +337,4 @@ for i = 1:stationLength %for each station in station names
     Slopes.DIndexAverage(i) = mean(A(:,2));
     title(compose(tempNames(2,1)+"\n"+Slopes.DIndexAverage(i)+"\n"+Slopes.DIndexSlope(i)));
 end
-timeWIndex = toc
+
