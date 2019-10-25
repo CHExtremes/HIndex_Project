@@ -249,4 +249,90 @@ timeWIndex = toc
 %periods that had x number of days with no rain. I don't think that will be
 %very informative since prolonged dry periods(drought) are more likely to
 %be influential than knowning that there are more, shorter dry periods.
+clc
+tic
+%stationLength = 1;
+ %calls the path of the current file directory
 
+DIndex = (1890:2019)';
+for i = 1:stationLength %for each station
+    baseFileName = stationNames(i); %this is the name of the file excluding file type. 
+    fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
+    temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
+    %creates an array from the starting year to the ending year of the stations available weather data
+    YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
+    temporaryDIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
+    temporaryDIndex.DIndex = zeros(height(temporaryDIndex),1);
+    counter = 0;
+    for j = temporaryDIndex.YEAR(1):temporaryDIndex.YEAR(end)%for each year at this station
+            year = temporaryFile(temporaryFile.YEAR==j,:); %locates the index values for the given year and creates a temporary matrix for the given year       
+            currentDryPeriod = 0; 
+            for D = 1:height(year) %this loop identifies the longest dry period for the given year               
+                if year.RAIN(D) < 1
+                    tempDryPeriod = tempDryPeriod + 1;
+                else
+                     if tempDryPeriod > currentDryPeriod
+                         currentDryPeriod = tempDryPeriod;
+                     end
+                     tempDryPeriod = 0;
+                end          
+            end
+            
+            while counter < currentDryPeriod
+                counter = 0;
+                tempDryPeriod = 0;
+                for h = 1:height(year)% for days in this year
+                    
+                    if year.RAIN(h) < 1
+                        tempDryPeriod = tempDryPeriod + 1;
+                    else
+                        if tempDryPeriod >= currentDryPeriod
+                            counter = counter + 1;
+                        end
+                        tempDryPeriod = 0;
+                    end                    
+                end
+                if counter < currentDryPeriod
+                    currentDryPeriod = currentDryPeriod-1;
+                end
+            end
+            temporaryDIndex.DIndex(j-temporaryDIndex.YEAR(1)+1) = currentDryPeriod;       
+    end
+    
+    for j = 1:height(temporaryDIndex) %for the number of years at the current station
+        for h = 1:length(DIndex) %for full array of years being analyzed
+           if temporaryDIndex.YEAR(j) == DIndex(h,1) %Checks to make sure that the years are the same for the given station
+              DIndex(h,i+1)=temporaryDIndex.DIndex(j); %if the years are the same, then the yearly value for the station is stored in a column specifically for that station
+           end
+        end
+    end  
+end
+timeDIndex = toc;
+%%
+figure('Name', 'D-Index')
+for i = 1:stationLength %for each station in station names
+    %this section creates an array of subplots where each station has it
+   
+    tempNames = split(tableStationNames(i), '_');
+    A = DIndex(DIndex(:,1+i) ~= 0,[ 1 1+i]); %for each station, create a new array with the non-zero values and their corresponding years
+    x = A(:,1);%x-axis is the year
+    y = A(:,2);%y-axis is the DIndex
+    subplot(4,6,i)
+    plot(x,y)
+    hold on
+    scatter(x, y,15,'filled')  
+    s = lsline;
+    s.Color = 'k';
+    title(tempNames(2,1));
+    xlabel('Year')
+    xlim([1890 2014])
+    ylabel('D-Index')
+    ylim([0 15])
+    %this section  creates a table of the station names and the slope for
+    %each trend line
+    p = polyfit(x,y,1);
+    Slopes.DIndexSlope(i) = p(1);
+    Slopes.DIndexAverage(i) = mean(A(:,2));
+    title(compose(tempNames(2,1)+"\n"+Slopes.DIndexAverage(i)+"\n"+Slopes.DIndexSlope(i)));
+end
+timeWIndex = toc
