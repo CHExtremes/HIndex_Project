@@ -28,8 +28,8 @@ tic
 stationLength = length(stationNames);
 %stationLength = 1;
 folder = strcat(pwd,'/',newFolder); %calls the path of the current file directory
-HIndex = zeros(130,23);
-HIndex(:,1) = 1890:2019';
+HIndex = zeros(124,23);
+HIndex(:,1) = (1890:2013)';
 
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
@@ -56,10 +56,10 @@ for i = 1:stationLength %for each station
             if counter < currentTemp %if the counter is smaller than currentTemp then the H-index is not valid, so we reduce it by one and repeat the loop.
                 currentTemp = currentTemp - 1;
             end
-        end
-        %temporaryHIndex((j-temporaryHIndex(1,1)+1), 2) = currentTemp; %stores the max H-index value for each year in temporaryHIndex      
+        end              
         temporaryHIndex.HIndex(j-temporaryHIndex.YEAR(1)+1) = currentTemp; 
-    end   
+    end
+    
     for j = 1:height(temporaryHIndex) %for the number of years at the current station
         for h = 1:length(HIndex) %for full array of years being analyzed
            if temporaryHIndex.YEAR(j) == HIndex(h,1) %Checks to make sure that the years are the same for the given station
@@ -92,8 +92,8 @@ for i = 1:length(tableStationNames) %for each station in station names
     %this section  creates a table of the station names and the slope for
     %each trend line
     p = polyfit(x,y,1);
-    Slopes.HIndexSlope(i) = p(1);
-    Slopes.HIndexAverage(i) = mean(A(:,2));
+    Slopes.HIndexSlope(i) = round(p(1),3);
+    Slopes.HIndexAverage(i) = round(mean(A(:,2)),1);
     title(compose(tempNames(2,1)+"\n"+Slopes.HIndexAverage(i)+"\n"+Slopes.HIndexSlope(i)));
 end
 
@@ -108,7 +108,9 @@ tic
 stationLength = length(stationNames);
 %stationLength = 1;
  %calls the path of the current file directory
-CIndex = (1890:2019)';
+CIndex = zeros(124,23);
+CIndex(:,1) = (1890:2013)';
+
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
     fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
@@ -123,6 +125,7 @@ for i = 1:stationLength %for each station
         currentTemp = round(min(year.TMIN)); %records max temp for the given year        
         %Count the number of times where the daily temp is greater than or
         %equal to that temp
+        counter = 0;
         while counter < 32-currentTemp %checks to see if the counter is smaller than the currentTemp. This is to make sure that the value is an H-Index value.
             counter = 0;
             for h = 1:height(year)% for days in this year
@@ -162,12 +165,12 @@ for i = 1:stationLength %for each station in station names
     xlabel('Year')
     xlim([1890 2014])
     ylabel('C-Index')
-    ylim([0 26])
+    ylim([0 25])
     %this section  creates a table of the station names and the slope for
     %each trend line
     p = polyfit(x,y,1);
-    Slopes.CIndexSlope(i) = p(1);
-    Slopes.CIndexAverage(i) = mean(A(:,2));
+    Slopes.CIndexSlope(i) = round(p(1),3);
+    Slopes.CIndexAverage(i) = round(mean(A(:,2)),1);
     title(compose(tempNames(2,1)+"\n"+Slopes.CIndexAverage(i)+"\n"+Slopes.CIndexSlope(i)));
 end
 timeCIndex = toc
@@ -181,7 +184,8 @@ tic
 %stationLength = 1;
  %calls the path of the current file directory
 stationLength = length(stationNames);
-WIndex = (1890:2019)';
+WIndex = zeros(124,23);
+WIndex(:,1) = (1890:2013)';
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
     fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
@@ -192,22 +196,22 @@ for i = 1:stationLength %for each station
     temporaryWIndex.WIndex = zeros(height(temporaryWIndex),1);
     counter = 0;
     for j = temporaryWIndex.YEAR(1):temporaryWIndex.YEAR(end)%for each year at this station
-            year = temporaryFile(temporaryFile.YEAR==j,:); %locates the index values for the given year and creates a temporary matrix for the given year       
-            currentPrecip = round(max(year.RAIN)); %records max temp for the given year        
-            %Count the number of times where the daily temp is greater than or
-            %equal to that temp
-            while counter < currentPrecip %checks to see if the counter is smaller than the currentTemp. This is to make sure that the value is an H-Index value.
-                counter = 0;
-                for h = 1:height(year)% for days in this year
-                    if year.RAIN(h) >= currentPrecip %If the value at row h and column TMaxColumn are greater than currentTemp
-                        counter = counter + 1; %increase counter by 1
-                    end    
-                end
-                if counter < currentPrecip %if the counter is smaller than currentTemp then the H-index is not valid, so we reduce it by one and repeat the loop.
-                    currentPrecip = currentPrecip - 1 ;
-                end
+        year = temporaryFile(temporaryFile.YEAR==j,:); %locates the index values for the given year and creates a temporary matrix for the given year       
+        currentPrecip = round(max(year.RAIN)); %records max temp for the given year        
+        %Count the number of times where the daily temp is greater than or
+        %equal to that temp
+        while counter < currentPrecip %checks to see if the counter is smaller than the currentTemp. This is to make sure that the value is an H-Index value.
+            counter = 0;
+            for h = 1:height(year)% for days in this year
+                if year.RAIN(h) >= currentPrecip %If the value at row h and column TMaxColumn are greater than currentTemp
+                    counter = counter + 1; %increase counter by 1
+                end    
             end
-            temporaryWIndex.WIndex(j-temporaryWIndex.YEAR(1)+1) = currentPrecip; %stores the max H-index value for each year in temporaryHIndex      
+            if counter < currentPrecip %if the counter is smaller than currentTemp then the H-index is not valid, so we reduce it by one and repeat the loop.
+                currentPrecip = currentPrecip - 1 ;
+            end
+        end
+        temporaryWIndex.WIndex(j-temporaryWIndex.YEAR(1)+1) = currentPrecip; %stores the max H-index value for each year in temporaryHIndex      
     end
     
     for j = 1:height(temporaryWIndex) %for the number of years at the current station
@@ -218,6 +222,7 @@ for i = 1:stationLength %for each station
         end
     end  
 end
+
 figure('Name', 'W-Index')
 for i = 1:stationLength %for each station in station names
     %this section creates an array of subplots where each station has it
@@ -236,12 +241,12 @@ for i = 1:stationLength %for each station in station names
     xlabel('Year')
     xlim([1890 2014])
     ylabel('W-Index')
-    ylim([6 26])
+    ylim([5 26])
     %this section  creates a table of the station names and the slope for
     %each trend line
     p = polyfit(x,y,1);
-    Slopes.WIndexSlope(i) = p(1);
-    Slopes.WIndexAverage(i) = mean(A(:,2));
+    Slopes.WIndexSlope(i) = round(p(1),3);
+    Slopes.WIndexAverage(i) = round(mean(A(:,2)),1);
     title(compose(tempNames(2,1)+"\n"+Slopes.WIndexAverage(i)+"\n"+Slopes.WIndexSlope(i)));
 end
 timeWIndex = toc
@@ -255,7 +260,8 @@ tic
 %stationLength = 1;
  %calls the path of the current file directory
 stationLength = length(stationNames);
-DIndex = (1890:2019)';
+DIndex = zeros(124,23);
+DIndex(:,1) = (1890:2013)';
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
     fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
@@ -265,12 +271,14 @@ for i = 1:stationLength %for each station
     temporaryDIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
     temporaryDIndex.DIndex = zeros(height(temporaryDIndex),1);
     counter = 0;
+    dryness = 1; %dryness is the minimum precipitation threshold for a day to be considered 'wet'
     for j = temporaryDIndex.YEAR(1):temporaryDIndex.YEAR(end)%for each year at this station
             year = temporaryFile(temporaryFile.YEAR==j,:); %locates the index values for the given year and creates a temporary matrix for the given year       
             currentDryPeriod = 0;
             tempDryPeriod = 0;
+            counter = 0;
             for D = 1:height(year) %this loop identifies the longest dry period for the given year               
-                if year.RAIN(D) < 1
+                if year.RAIN(D) < dryness
                     tempDryPeriod = tempDryPeriod + 1;
                 else
                      if tempDryPeriod > currentDryPeriod
@@ -285,7 +293,7 @@ for i = 1:stationLength %for each station
                 tempDryPeriod = 0;
                 for h = 1:height(year)% for days in this year
                     
-                    if year.RAIN(h) < 1
+                    if year.RAIN(h) < dryness
                         tempDryPeriod = tempDryPeriod + 1;
                     else
                         if tempDryPeriod >= currentDryPeriod
@@ -333,8 +341,8 @@ for i = 1:stationLength %for each station in station names
     %this section  creates a table of the station names and the slope for
     %each trend line
     p = polyfit(x,y,1);
-    Slopes.DIndexSlope(i) = p(1);
-    Slopes.DIndexAverage(i) = mean(A(:,2));
+    Slopes.DIndexSlope(i) = round(p(1),3);
+    Slopes.DIndexAverage(i) = round(mean(A(:,2)),1);
     title(compose(tempNames(2,1)+"\n"+Slopes.DIndexAverage(i)+"\n"+Slopes.DIndexSlope(i)));
 end
 
