@@ -36,16 +36,11 @@ folder = strcat(pwd,'/',newFolder); %calls the path of the current file director
 %DIndex(:,1) = (1890:2013)';
 
 %dryFreq1 = (1:150)';
-dryFreq2 = (1:150)';
+dryFreq = (1:150)';
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
     fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
-    temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
-    %creates an array from the starting year to the ending year of the stations available weather data
-    YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
-    temporaryDIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
-    temporaryDIndex.DIndex = zeros(height(temporaryDIndex),1);
-    %counter = 0;
+    temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name 
     dryness = 1; %dryness is the minimum precipitation threshold for a day to be considered 'wet'
     currentDryPeriod = 0;
     tempDryPeriod = 0;
@@ -85,11 +80,11 @@ for i = 1:stationLength %for each station
     for j = 1:length(tempDryFreq.MAGNITUDE)
         if dryFreq(j,1) == tempDryFreq.MAGNITUDE(j)
             %dryFreq1(j,i+1) = tempDryFreq.ExactDP(j);
-            dryFreq2(j,i+1) = tempDryFreq.GreaterThanDP(j);
+            dryFreq(j,i+1) = tempDryFreq.GreaterThanDP(j);
         end
     end 
 end
-%%
+%% 3
 scatter(tempDryFreq.MAGNITUDE,tempDryFreq.ExactDP, 'filled')
 hold on
 scatter(tempDryFreq.MAGNITUDE, tempDryFreq.GreaterThanDP, 'filled')
@@ -100,11 +95,11 @@ bar(tempDryFreq.ExactDP)
 
 %timeDIndex = toc;
 
-%% 3
+%% 4
 figure('Name', 'D-Index')
 for i = 1:stationLength %for each station in station names
     %this section creates an array of subplots where each station has it
-    A = array2table(dryFreq2(dryFreq2(:,1+i) ~= 0,[ 1 1+i])); %for each station, create a new array with the non-zero values and their corresponding years
+    A = array2table(dryFreq(dryFreq(:,1+i) ~= 0,[ 1 1+i])); %for each station, create a new array with the non-zero values and their corresponding years
     A.Properties.VariableNames{'Var1'} = 'Magnitude'; 
     A.Properties.VariableNames{'Var2'} = 'Frequency';
     subplot(4,6,i)
@@ -118,3 +113,62 @@ for i = 1:stationLength %for each station in station names
     tempNames = split(tableStationNames(i), '_');
     title(tempNames(2,1))
 end
+%% 5
+%for this seciont, I need to update the script from 2 to be able to
+%determine the number of times a dry period of a specific lengths occurs
+%for each given year at each given station. 
+tic
+clc
+stationLength = 1;%length(stationNames);
+folder = strcat(pwd,'/',newFolder); %calls the path of the current file directory
+DIndex = zeros(124,151);
+DIndex(:,1) = (1890:2013)';
+dryFreq = (1:150)';
+frequency = 1;
+dryness = 1; %dryness is the minimum precipitation threshold for a day to be considered 'wet'
+for i = 1:stationLength %for each station
+    baseFileName = stationNames(i); %this is the name of the file excluding file type. 
+    fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
+    temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
+  
+
+    
+    %so I want this script to look at the amount of times a dry period of
+    %each length listed in dryFreq occurs in a given year at a given
+    %station. So the outer loop will, as always, be the station loop. Next
+    %will be the frequency loop. Then I'll have a year loop. Then a
+    %counting loop. Before the Station loop restarts, I'll need to save the
+    %frequency information.
+    for j = 1:150
+        for h = temporaryFile.YEAR(1):temporaryFile.YEAR(end) 
+            year = temporaryFile(temporaryFile.YEAR==h,:);
+            counter = 0;
+            tempFreq = 0;
+            for k = 1:height(year) %For each year, this loop finds the number of times there is a dry period of length j
+                
+                if year.RAIN(k) <= dryness %counts the number of times in a row that there are days with rain
+                    counter = counter + 1;
+                else
+                    if counter >= j
+                        tempFreq = tempFreq+1;
+                        
+                    end
+                    counter = 0;
+                end
+            end
+            for k = DIndex(1,1):DIndex(end,1)
+                if DIndex(k-DIndex(1,1)+1,1) == h 
+                    if tempFreq > 0 %DIndex(h-temporaryFile.YEAR(1)+1,j+1)
+                        DIndex(k-DIndex(1,1)+1,j+1)= tempFreq; %ensures that the year for DIndex matches the Year for the station
+                    end
+                end
+            end
+        end     
+    end       
+end
+timeD = toc;
+
+%%
+plot((1:150),DIndex(19,2:151))
+hold on
+scatter((1:150),DIndex(19,:))
