@@ -175,6 +175,7 @@ end
 timeD = toc;
 
 %%
+clc
 A = DIndex(1:(end-1),1);
 [r,c] = size(DIndex);
 Results = table;
