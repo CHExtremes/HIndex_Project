@@ -28,27 +28,42 @@ tic
 stationLength = length(stationNames);
 %stationLength = 1;
 folder = strcat(pwd,'/',newFolder); %calls the path of the current file directory
-startYear = 1981;
-stopYear = 2013;
-useStartYear = 1;
-useStopYear = 0;
-HIndex = zeros(stopYear-startYear+1,23);
-HIndex(:,1) = (startYear:stopYear)';
+HIndex = zeros(2013-1890+1,23);
+HIndex(:,1) = (1890:2013)';
+
+% % This section of script can be used to make the entire H-Index data set
+% adjustable by date. However, I've removed it for now because I can adjust
+% date during the graphin section more effectively
+% if useStartYear == 1 && useStopYear == 1
+%     HIndex = zeros(stopYear-startYear+1,23);
+%     HIndex(:,1) = (startYear:stopYear)';
+% elseif useStartYear == 1 && useStopeYear == 0
+%     HIndex = zeros(2013-startYear+1,23);
+%     HIndex(:,1) = (startYear:2013)';
+% elseif useStartYear == 0 && useStopYear == 1
+%     HIndex = zeros(1890-startYear+1,23);
+%     HIndex(:,1) = (1890:stopYear)';
+% else
+%     HIndex = zeros(2013-1890+1,23);
+%     HIndex(:,1) = (1890:2013)';
+% end
 
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
     fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path
     temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
     %creates an array from the starting year to the ending year of the stations available weather data
-    if useStartYear == 1 && useStopYear == 0
-        YEAR = transpose(startYear:max(temporaryFile.YEAR));
-    elseif useStartYear == 1 && useStopYear == 1
-        YEAR = transpose(startYear:stopYear);
-    elseif useStartYear == 0 && useStopYear == 1
-        YEAR = transpose(min(temporaryFile.YEAR):stopYear);
-    else     
-        YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
-    end
+%     commented out this section of script for the same reason as above.
+%     if useStartYear == 1 && useStopYear == 0
+%         YEAR = transpose(startYear:max(temporaryFile.YEAR));
+%     elseif useStartYear == 1 && useStopYear == 1
+%         YEAR = transpose(startYear:stopYear);
+%     elseif useStartYear == 0 && useStopYear == 1
+%         YEAR = transpose(min(temporaryFile.YEAR):stopYear);
+%     else     
+%         YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
+%     end
+    YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
     temporaryHIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
     temporaryHIndex.HIndex = zeros(height(temporaryHIndex),1);
     counter = 0;
@@ -81,9 +96,16 @@ for i = 1:stationLength %for each station
     end
 end
 timeHindex = toc
-
-Results = table;
-Results.NAME = tableStationNames';
+%%
+%creates a table to store all statistical values for all results for a
+%given Index
+HResults = table;
+HResults.NAME = tableStationNames';
+%
+startYear = 1981;
+stopYear = 2013;
+useStartYear = 0;
+useStopYear = 0;
 figure('Name', 'H-Index')
 %periods = 
 for i = 1:length(tableStationNames) %for each station in station names 
@@ -93,55 +115,106 @@ for i = 1:length(tableStationNames) %for each station in station names
     tempNames = split(tableStationNames(i), '_'); %assigns a variable to the stations name and cuts out any unnecissary labels used for organization purposes
     A = array2table(HIndex(HIndex(:,1+i) ~= 0,[ 1 1+i])); %for each station, create a new array with the non-zero values and their corresponding years
     A.Properties.VariableNames{'Var1'} = 'YEAR'; 
-    A.Properties.VariableNames{'Var2'} = 'HIndex';    
+    A.Properties.VariableNames{'Var2'} = 'HIndex';  
+    B = A(A.YEAR>=startYear,:);
     subplot(4,6,i) %Creates a system of subplots in a 4x6 grid
-    l = plot(A.YEAR,A.HIndex); %adds a line to the plot for additional clarity
+    lA = plot(A.YEAR,A.HIndex); %adds a line to the plot for additional clarity
     hold on %add each station to the same plot
-    mdl = fitlm(A, 'HIndex ~ YEAR'); %performs a linear regression for the Year and the H Index
-    z = plot(mdl); %plots the linear regression and data points
-    x = A.YEAR;
-    y = A.HIndex;
-    %this code runs trends analysis on x and y as independant and depedant variables
-    %it tests the hypothesis of no correlation against the alternative
-    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
-    %we reject the hypothesis.
-    [tau,p1]=corr(x,y,'type','kendall'); %kendall method
-    tau_p(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
-    [rho,p2]=corr(x,y,'type','spearman');%spearman method
-    rho_p(i,1:3)=[i,rho,p2];
-    [r,p3]=corr(x,y);%pearson (linear) method
-    r_p(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y);    
+    mdlA = fitlm(A, 'HIndex ~ YEAR'); %performs a linear regression for the Year and the H Index    
+    zA = plot(mdlA); %plots the linear regression and data point
+    mdlB = fitlm(B, 'HIndex ~ YEAR');
+    zB = plot(mdlB);
+    xA = A.YEAR;
+    yA = A.HIndex;
+    xB = B.YEAR;
+    yB = B.HIndex;  
+      
     %below are changes to the colors and markers of the plot for additional
     %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
     %can turn these on later if we want to visually analyze the error
     %margins.
-    z(1).Color = '#D95319'; %sets data points to be orange
-    z(1).Marker = '.';
-    z(1).MarkerSize = 10;
-    z(2).Color = 'k';
-    z(2).LineWidth = 1;
-    z(3).Color = 'none';
-    z(4).Color = 'none';
-    legend('off'); %hides the automatic legend generated by fitlm
+    zA(1).Color = '#D95319'; %sets data points to be orange
+    zA(1).Marker = '.';
+    zA(1).MarkerSize = 10;
+    zA(2).Color = 'k';
+    zA(2).LineWidth = 1;
+    zA(3).Color = 'none';
+    zA(4).Color = 'none';
     
+    legend('off'); %hides the automatic legend generated by fitlm
+    zB(1).Color = '#D95319'; %sets data points to be orange
+    zB(1).Marker = '.';
+    zB(1).MarkerSize = 10;
+    zB(2).Color = 'k';
+    zB(2).LineWidth = 1;
+    zB(3).Color = 'none';
+    zB(4).Color = 'none';
+    
+    legend('off'); %hides the automatic legend generated by fitlm
     xlabel('Year', 'FontSize', 11)
-    xlim([startYear (stopYear+1)])
+    if useStartYear == 1 && useStopYear == 0
+        xlim([startYear 2014])
+    elseif useStartYear == 1 && useStopYear == 1
+        xlim([startYear (stopYear+1)])
+    elseif useStartYear == 0 && useStopYear == 1
+        xlim([1890 (stopYear+1)])
+    else     
+        xlim([1890 2014])
+    end
     ylabel('H - Index', 'FontSize', 11)  
     ylim([79 95])
     
-    %this section  creates a table of the station names and the slope for
-    %each trend line
+    %this section  creates a table statistically important values for both
+    %the POR and the specified period
+    
     %p = polyfit(x,y,1);
-    Results.HIndexSlope(i) = round(table2array(mdl.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm function
-    Results.HIndexAverage(i) = round(mean(A.HIndex),1); %calculates the average H index for the station and adds that to a new table
-    Results.HIndexR(i) = r_p(i,2);
-    Results.HIndexRsqr(i) = mdl.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
-    Results.HIndexRPValue(i) = round(table2array(mdl.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
-    Results.HIndexRho(i) = rho_p(i,2);
-    Results.HIndexRhoPValue(i) = rho_p(i,3);
-    Results.HIndexTau(i) = tau_p(i,2);
-    Results.HIndexTauPValue(i)= tau_p(i,3);
-    title(compose(tempNames(2,1)+"\n"+Results.HIndexAverage(i)+"\n"+Results.HIndexSlope(i)),'FontSize', 11);
+       %this code runs trends analysis on x and y as independant and depedant variables
+    %it tests the hypothesis of no correlation against the alternative
+    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
+    %we reject the hypothesis.
+    %analysis for the whole period of record
+    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
+    rho_pA(i,1:3)=[i,rho,p2];
+    [r,p3]=corr(xA,yA);%pearson (linear) method
+    r_pA(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y);    
+    
+    HResults.slopePOR(i) = round(table2array(mdlA.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm function
+    HResults.rPOR(i) = r_pA(i,2);
+    HResults.rSqrPOR(i) = mdlA.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    HResults.rPValuePOR(i) = round(table2array(mdlA.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    HResults.rhoPOR(i) = rho_pA(i,2);
+    HResults.rhoPValuePOR(i) = rho_pA(i,3);
+    HResults.tauPOR(i) = tau_pA(i,2);
+    HResults.tauPValuePOR(i)= tau_pA(i,3);
+    HResults.minPOR(i) = min(A.HIndex);
+    HResults.maxPOR(i) = max(A.HIndex);
+    HResults.meanPOR(i) = round(mean(A.HIndex),1); %calculates the average H index for the station and adds that to a new table
+    HResults.medianPOR(i) = median(A.HIndex);
+    
+     %Statistical analysis for a specified period denoted by either a B or SP
+     %(Specified Period)
+    [tau,p1]=corr(xB,yB,'type','kendall'); %kendall method
+    tau_pB(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [rho,p2]=corr(xB,yB,'type','spearman');%spearman method
+    rho_pB(i,1:3)=[i,rho,p2];
+    [r,p3]=corr(xB,yB);%pearson (linear) method
+    r_pB(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y); 
+    
+    HResults.slopeSP(i) = round(table2array(mdlB.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm functioN
+    HResults.rSP(i) = r_pB(i,2);
+    HResults.rSqrSP(i) = mdlB.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    HResults.rPValueSP(i) = round(table2array(mdlB.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    HResults.rhoSP(i) = rho_pB(i,2);
+    HResults.rhoPValueSP(i) = rho_pB(i,3);
+    HResults.tauSP(i) = tau_pB(i,2);
+    HResults.tauPValueSP(i)= tau_pB(i,3);
+    HResults.minSP(i) = min(B.HIndex);
+    HResults.maxSP(i) = max(B.HIndex);
+    HResults.meanSP(i) = round(mean(B.HIndex),1);
+    HResults.medianSP(i) = median(B.HIndex);
+    title(compose(tempNames(2,1)+"\n"+HResults.slopePOR(i)+"\n"+HResults.slopeSP(i)),'FontSize', 11);
 end
 %use the below script when you want to automatically make tiff files for
 %the given graphs. There is an issue with this function in that it doesn't
@@ -160,23 +233,15 @@ tic
 stationLength = length(stationNames);
 %stationLength = 1;
 %calls the path of the current file directory
-CIndex = zeros(stopYear-startYear+1,23);
-CIndex(:,1) = (startYear:stopYear)';
+CIndex = zeros(2013-1890+1,23);
+CIndex(:,1) = (1890:2013)';
 
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
     fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
     temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
     %creates an array from the starting year to the ending year of the stations available weather data
-    if useStartYear == 1 && useStopYear == 0
-        YEAR = transpose(startYear:max(temporaryFile.YEAR));
-    elseif useStartYear == 1 && useStopYear == 1
-        YEAR = transpose(startYear:stopYear);
-    elseif useStartYear == 0 && useStopYear == 1
-        YEAR = transpose(min(temporaryFile.YEAR):stopYear);
-    else     
-        YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
-    end
+    YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
     temporaryCIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
     temporaryCIndex.CIndex = zeros(height(temporaryCIndex),1);
     counter = 0;
@@ -209,62 +274,125 @@ for i = 1:stationLength %for each station
     end
 end
 timeCIndex = toc
-
+%%
+CResults = table;
+CResults.NAME = tableStationNames';
+%for now, I'm only controlling the year from the H-Index section
+% startYear = 1981;
+% stopYear = 2013;
+% useStartYear = 0;
+% useStopYear = 0;
 figure('Name', 'C-Index')
-for i = 1:stationLength %for each station in station names
-    %this section creates an array of subplots where each station has it
-    %sown plot
-    tempNames = split(tableStationNames(i), '_');
+%periods = 
+for i = 1:length(tableStationNames) %for each station in station names 
+    %this section creates an array of subplots where each station has its
+    %own plot showing the data points in orange, the change in time in
+    %blue, and the general trend in black.
+    tempNames = split(tableStationNames(i), '_'); %assigns a variable to the stations name and cuts out any unnecissary labels used for organization purposes
     A = array2table(CIndex(CIndex(:,1+i) ~= 0,[ 1 1+i])); %for each station, create a new array with the non-zero values and their corresponding years
     A.Properties.VariableNames{'Var1'} = 'YEAR'; 
-    A.Properties.VariableNames{'Var2'} = 'CIndex';
-    subplot(4,6,i)
-    l = plot(A.YEAR,A.CIndex); %adds a line to the plot for additional clarity
+    A.Properties.VariableNames{'Var2'} = 'CIndex';  
+    B = A(A.YEAR>=startYear,:);
+    subplot(4,6,i) %Creates a system of subplots in a 4x6 grid
+    lA = plot(A.YEAR,A.CIndex); %adds a line to the plot for additional clarity
     hold on %add each station to the same plot
-    mdl = fitlm(A, 'CIndex ~ YEAR'); %performs a linear regression for the Year and the C Index
-    z = plot(mdl); %plots the linear regression and data points
-    x = A.YEAR;
-    y = A.CIndex;
-    %this code runs trends analysis on x and y as independant and depedant variables
-    %it tests the hypothesis of no correlation against the alternative
-    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
-    %we reject the hypothesis.
-    [tau,p1]=corr(x,y,'type','kendall'); %kendall method
-    tau_p(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
-    [rho,p2]=corr(x,y,'type','spearman');%spearman method
-    rho_p(i,1:3)=[i,rho,p2];
-    [r,p3]=corr(x,y);%pearson (linear) method
-    r_p(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y);
+    mdlA = fitlm(A, 'CIndex ~ YEAR'); %performs a linear regression for the Year and the H Index    
+    zA = plot(mdlA); %plots the linear regression and data point
+    mdlB = fitlm(B, 'CIndex ~ YEAR');
+    zB = plot(mdlB);
+    xA = A.YEAR;
+    yA = A.CIndex;
+    xB = B.YEAR;
+    yB = B.CIndex;  
+      
     %below are changes to the colors and markers of the plot for additional
     %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
     %can turn these on later if we want to visually analyze the error
     %margins.
-    z(1).Color = '#D95319'; %sets data points to be orange
-    z(1).Marker = '.';
-    z(1).MarkerSize = 10;
-    z(2).Color = 'k';
-    z(2).LineWidth = 1;
-    z(3).Color = 'none';
-    z(4).Color = 'none';
-    legend('off'); %hides the automatic legend generated by fitlm  
+    zA(1).Color = '#D95319'; %sets data points to be orange
+    zA(1).Marker = '.';
+    zA(1).MarkerSize = 10;
+    zA(2).Color = 'k';
+    zA(2).LineWidth = 1;
+    zA(3).Color = 'none';
+    zA(4).Color = 'none';
     
-    xlabel('Year','FontSize', 11)
-    xlim([startYear (stopYear+1)])
-    ylabel('C - Index','FontSize', 11)
+    legend('off'); %hides the automatic legend generated by fitlm
+    zB(1).Color = '#D95319'; %sets data points to be orange
+    zB(1).Marker = '.';
+    zB(1).MarkerSize = 10;
+    zB(2).Color = 'k';
+    zB(2).LineWidth = 1;
+    zB(3).Color = 'none';
+    zB(4).Color = 'none';
+    
+    legend('off'); %hides the automatic legend generated by fitlm
+    %determines if the scale of the graph needs to be changed based on the
+    %size of the year
+    xlabel('Year', 'FontSize', 11)
+    if useStartYear == 1 && useStopYear == 0
+        xlim([startYear 2014])
+    elseif useStartYear == 1 && useStopYear == 1
+        xlim([startYear (stopYear+1)])
+    elseif useStartYear == 0 && useStopYear == 1
+        xlim([1890 (stopYear+1)])
+    else     
+        xlim([1890 2014])
+    end
+    ylabel('C - Index', 'FontSize', 11)  
     ylim([10 30])
-    %this section  creates a table of the station names and the slope for
-    %each trend line
-   
-    Results.CIndexSlope(i) = round(table2array(mdl.Coefficients(2,1)),3); %calls the slope given for the linear regression of the data using the fitlm function
-    Results.CIndexAverage(i) = round(mean(A.CIndex),1); %calculates the average C index for the station and adds that to a new table
-    Results.CIndexR(i) = r_p(i,2);
-    Results.CIndexRsqr(i) = mdl.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
-    Results.CIndexRPValue(i) = round(table2array(mdl.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
-    Results.CIndexRho(i) = rho_p(i,2);
-    Results.CIndexRhoPValue(i) = rho_p(i,3);
-    Results.CIndexTau(i) = tau_p(i,2);
-    Results.CIndexTauPValue(i)= tau_p(i,3);
-    title(compose(tempNames(2,1)+"\n"+Results.CIndexAverage(i)+"\n"+Results.CIndexSlope(i)),'FontSize', 11);
+    
+    %this section  creates a table statistically important values for both
+    %the POR and the specified period
+    
+    %p = polyfit(x,y,1);
+       %this code runs trends analysis on x and y as independant and depedant variables
+    %it tests the hypothesis of no correlation against the alternative
+    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
+    %we reject the hypothesis.
+    %analysis for the whole period of record
+    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
+    rho_pA(i,1:3)=[i,rho,p2];
+    [r,p3]=corr(xA,yA);%pearson (linear) method
+    r_pA(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y);    
+    
+    CResults.slopePOR(i) = round(table2array(mdlA.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm function
+    CResults.rPOR(i) = r_pA(i,2);
+    CResults.rSqrPOR(i) = mdlA.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    CResults.rPValuePOR(i) = round(table2array(mdlA.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    CResults.rhoPOR(i) = rho_pA(i,2);
+    CResults.rhoPValuePOR(i) = rho_pA(i,3);
+    CResults.tauPOR(i) = tau_pA(i,2);
+    CResults.tauPValuePOR(i)= tau_pA(i,3);
+    CResults.minPOR(i) = min(A.CIndex);
+    CResults.maxPOR(i) = max(A.CIndex);
+    CResults.meanPOR(i) = round(mean(A.CIndex),1); %calculates the average H index for the station and adds that to a new table
+    CResults.medianPOR(i) = median(A.CIndex);
+    
+     %Statistical analysis for a specified period denoted by either a B or SP
+     %(Specified Period)
+    [tau,p1]=corr(xB,yB,'type','kendall'); %kendall method
+    tau_pB(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [rho,p2]=corr(xB,yB,'type','spearman');%spearman method
+    rho_pB(i,1:3)=[i,rho,p2];
+    [r,p3]=corr(xB,yB);%pearson (linear) method
+    r_pB(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y); 
+    
+    CResults.slopeSP(i) = round(table2array(mdlB.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm functioN
+    CResults.rSP(i) = r_pB(i,2);
+    CResults.rSqrSP(i) = mdlB.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    CResults.rPValueSP(i) = round(table2array(mdlB.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    CResults.rhoSP(i) = rho_pB(i,2);
+    CResults.rhoPValueSP(i) = rho_pB(i,3);
+    CResults.tauSP(i) = tau_pB(i,2);
+    CResults.tauPValueSP(i)= tau_pB(i,3);
+    CResults.minSP(i) = min(B.CIndex);
+    CResults.maxSP(i) = max(B.CIndex);
+    CResults.meanSP(i) = round(mean(B.CIndex),1);
+    CResults.medianSP(i) = median(B.CIndex);
+    title(compose(tempNames(2,1)+"\n"+CResults.slopePOR(i)+"\n"+CResults.slopeSP(i)),'FontSize', 11);
 end
 %use the below script when you want to automatically make tiff files for
 %the given graphs. See H-Index for issues with this function
@@ -281,22 +409,14 @@ tic
 %stationLength = 1;
  %calls the path of the current file directory
 stationLength = length(stationNames);
-WIndex = zeros(stopYear-startYear+1,23);
-WIndex(:,1) = (startYear:stopYear)';
+WIndex = zeros(2013-1890+1,23);
+WIndex(:,1) = (1890:2013)';
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
     fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
     temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
     %creates an array from the starting year to the ending year of the stations available weather data
-    if useStartYear == 1 && useStopYear == 0
-        YEAR = transpose(startYear:max(temporaryFile.YEAR));
-    elseif useStartYear == 1 && useStopYear == 1
-        YEAR = transpose(startYear:stopYear);
-    elseif useStartYear == 0 && useStopYear == 1
-        YEAR = transpose(min(temporaryFile.YEAR):stopYear);
-    else     
-        YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
-    end
+    YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
     temporaryWIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
     temporaryWIndex.WIndex = zeros(height(temporaryWIndex),1);
     counter = 0;
@@ -328,62 +448,125 @@ for i = 1:stationLength %for each station
     end  
 end
 timeWIndex = toc;
-
+%%
+WResults = table;
+WResults.NAME = tableStationNames';
+%for now, I'm only controlling the year from the H-Index section
+% startYear = 1981;
+% stopYear = 2013;
+% useStartYear = 0;
+% useStopYear = 0;
 figure('Name', 'W-Index')
-for i = 1:stationLength %for each station in station names
-    %this section creates an array of subplots where each station has it
-    %sown plot
-    tempNames = split(tableStationNames(i), '_');
+%periods = 
+for i = 1:length(tableStationNames) %for each station in station names 
+    %this section creates an array of subplots where each station has its
+    %own plot showing the data points in orange, the change in time in
+    %blue, and the general trend in black.
+    tempNames = split(tableStationNames(i), '_'); %assigns a variable to the stations name and cuts out any unnecissary labels used for organization purposes
     A = array2table(WIndex(WIndex(:,1+i) ~= 0,[ 1 1+i])); %for each station, create a new array with the non-zero values and their corresponding years
     A.Properties.VariableNames{'Var1'} = 'YEAR'; 
-    A.Properties.VariableNames{'Var2'} = 'WIndex';
-    subplot(4,6,i)
-    l = plot(A.YEAR,A.WIndex); %adds a line to the plot for additional clarity
+    A.Properties.VariableNames{'Var2'} = 'WIndex';  
+    B = A(A.YEAR>=startYear,:);
+    subplot(4,6,i) %Creates a system of subplots in a 4x6 grid
+    lA = plot(A.YEAR,A.WIndex); %adds a line to the plot for additional clarity
     hold on %add each station to the same plot
-    mdl = fitlm(A, 'WIndex ~ YEAR'); %performs a linear regression for the Year and the C Index
-    z = plot(mdl); %plots the linear regression and data points
-    x = A.YEAR;
-    y = A.WIndex;
-    %this code runs trends analysis on x and y as independant and depedant variables
-    %it tests the hypothesis of no correlation against the alternative
-    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
-    %we reject the hypothesis.
-    [tau,p1]=corr(x,y,'type','kendall'); %kendall method
-    tau_p(i,1:3)=[i,tau,p1];%j is stations number in  the loop; tou is kendall tou value; and p1 is the p-value for the test.
-    [rho,p2]=corr(x,y,'type','spearman');%spearman method
-    rho_p(i,1:3)=[i,rho,p2];
-    [r,p3]=corr(x,y);%pearson (linear) method
-    r_p(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y);
+    mdlA = fitlm(A, 'WIndex ~ YEAR'); %performs a linear regression for the Year and the H Index    
+    zA = plot(mdlA); %plots the linear regression and data point
+    mdlB = fitlm(B, 'WIndex ~ YEAR');
+    zB = plot(mdlB);
+    xA = A.YEAR;
+    yA = A.WIndex;
+    xB = B.YEAR;
+    yB = B.WIndex;  
+      
     %below are changes to the colors and markers of the plot for additional
     %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
     %can turn these on later if we want to visually analyze the error
     %margins.
-    z(1).Color = '#D95319'; %sets data points to be orange
-    z(1).Marker = '.';
-    z(1).MarkerSize = 10;
-    z(2).Color = 'k';
-    z(2).LineWidth = 1;
-    z(3).Color = 'none';
-    z(4).Color = 'none';
+    zA(1).Color = '#D95319'; %sets data points to be orange
+    zA(1).Marker = '.';
+    zA(1).MarkerSize = 10;
+    zA(2).Color = 'k';
+    zA(2).LineWidth = 1;
+    zA(3).Color = 'none';
+    zA(4).Color = 'none';
+    
     legend('off'); %hides the automatic legend generated by fitlm
+    zB(1).Color = '#D95319'; %sets data points to be orange
+    zB(1).Marker = '.';
+    zB(1).MarkerSize = 10;
+    zB(2).Color = 'k';
+    zB(2).LineWidth = 1;
+    zB(3).Color = 'none';
+    zB(4).Color = 'none';
     
+    legend('off'); %hides the automatic legend generated by fitlm
+    %determines if the scale of the graph needs to be changed based on the
+    %size of the year
     xlabel('Year', 'FontSize', 11)
-    xlim([startYear (stopYear+1)])
-    ylabel('W - Index', 'FontSize', 11)
+    if useStartYear == 1 && useStopYear == 0
+        xlim([startYear 2014])
+    elseif useStartYear == 1 && useStopYear == 1
+        xlim([startYear (stopYear+1)])
+    elseif useStartYear == 0 && useStopYear == 1
+        xlim([1890 (stopYear+1)])
+    else     
+        xlim([1890 2014])
+    end
+    ylabel('W - Index', 'FontSize', 11)  
     ylim([5 26])
-    %this section  creates a table of the station names and the slope for
-    %each trend line
     
-    Results.WIndexSlope(i) = round(table2array(mdl.Coefficients(2,1)),3); %calls the slope given for the linear regression of the data using the fitlm function
-    Results.WIndexAverage(i) = round(mean(A.WIndex),1); %calculates the average W index for the station and adds that to a new table
-    Results.WIndexR(i) = r_p(i,2);
-    Results.WIndexRsqr(i) = mdl.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
-    Results.WIndexPValue(i) = round(table2array(mdl.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
-    Results.WIndexRho(i) = rho_p(i,2);
-    Results.WIndexRhoPValue(i) = rho_p(i,3);
-    Results.WIndexTau(i) = tau_p(i,2);
-    Results.WIndexTauPValue(i)= tau_p(i,3);
-    title(compose(tempNames(2,1)+"\n"+Results.WIndexAverage(i)+"\n"+Results.WIndexSlope(i)),'FontSize', 11);
+    %this section  creates a table statistically important values for both
+    %the POR and the specified period
+    
+    %p = polyfit(x,y,1);
+       %this code runs trends analysis on x and y as independant and depedant variables
+    %it tests the hypothesis of no correlation against the alternative
+    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
+    %we reject the hypothesis.
+    %analysis for the whole period of record
+    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
+    rho_pA(i,1:3)=[i,rho,p2];
+    [r,p3]=corr(xA,yA);%pearson (linear) method
+    r_pA(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y);    
+    
+    WResults.slopePOR(i) = round(table2array(mdlA.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm function
+    WResults.rPOR(i) = r_pA(i,2);
+    WResults.rSqrPOR(i) = mdlA.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    WResults.rPValuePOR(i) = round(table2array(mdlA.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    WResults.rhoPOR(i) = rho_pA(i,2);
+    WResults.rhoPValuePOR(i) = rho_pA(i,3);
+    WResults.tauPOR(i) = tau_pA(i,2);
+    WResults.tauPValuePOR(i)= tau_pA(i,3);
+    WResults.minPOR(i) = min(A.WIndex);
+    WResults.maxPOR(i) = max(A.WIndex);
+    WResults.meanPOR(i) = round(mean(A.WIndex),1); %calculates the average H index for the station and adds that to a new table
+    WResults.medianPOR(i) = median(A.WIndex);
+    
+     %Statistical analysis for a specified period denoted by either a B or SP
+     %(Specified Period)
+    [tau,p1]=corr(xB,yB,'type','kendall'); %kendall method
+    tau_pB(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [rho,p2]=corr(xB,yB,'type','spearman');%spearman method
+    rho_pB(i,1:3)=[i,rho,p2];
+    [r,p3]=corr(xB,yB);%pearson (linear) method
+    r_pB(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y); 
+    
+    WResults.slopeSP(i) = round(table2array(mdlB.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm functioN
+    WResults.rSP(i) = r_pB(i,2);
+    WResults.rSqrSP(i) = mdlB.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    WResults.rPValueSP(i) = round(table2array(mdlB.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    WResults.rhoSP(i) = rho_pB(i,2);
+    WResults.rhoPValueSP(i) = rho_pB(i,3);
+    WResults.tauSP(i) = tau_pB(i,2);
+    WResults.tauPValueSP(i)= tau_pB(i,3);
+    WResults.minSP(i) = min(B.WIndex);
+    WResults.maxSP(i) = max(B.WIndex);
+    WResults.meanSP(i) = round(mean(B.WIndex),1);
+    WResults.medianSP(i) = median(B.WIndex);
+    title(compose(tempNames(2,1)+"\n"+WResults.slopePOR(i)+"\n"+WResults.slopeSP(i)),'FontSize', 11);
 end
 %use the below script when you want to automatically make tiff files for
 %the given graphs. See H-Index for issues with this function
@@ -474,21 +657,21 @@ for i = 1:stationLength %for each station in station names
     A.Properties.VariableNames{'Var1'} = 'YEAR'; 
     A.Properties.VariableNames{'Var2'} = 'DIndex';
     subplot(4,6,i)
-    l = plot(A.YEAR,A.DIndex); %adds a line to the plot for additional clarity
+    lA = plot(A.YEAR,A.DIndex); %adds a line to the plot for additional clarity
     hold on %add each station to the same plot
-    mdl = fitlm(A, 'DIndex ~ YEAR'); %performs a linear regression for the Year and the D Index
-    z = plot(mdl); %plots the linear regression and data points
+    mdlA = fitlm(A, 'DIndex ~ YEAR'); %performs a linear regression for the Year and the D Index
+    zA = plot(mdlA); %plots the linear regression and data points
     %below are changes to the colors and markers of the plot for additional
     %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
     %can turn these on later if we want to visually analyze the error
     %margins.
-    z(1).Color = '#D95319'; %sets data points to be orange
-    z(1).Marker = '.';
-    z(1).MarkerSize = 10;
-    z(2).Color = 'k';
-    z(2).LineWidth = 1;
-    z(3).Color = 'none';
-    z(4).Color = 'none';
+    zA(1).Color = '#D95319'; %sets data points to be orange
+    zA(1).Marker = '.';
+    zA(1).MarkerSize = 10;
+    zA(2).Color = 'k';
+    zA(2).LineWidth = 1;
+    zA(3).Color = 'none';
+    zA(4).Color = 'none';
     legend('off'); %hides the automatic legend generated by fitlm  
     
     xlabel('Year', 'FontSize', 11)
@@ -499,11 +682,11 @@ for i = 1:stationLength %for each station in station names
     %each trend line
     
     
-    Results.DIndexSlope(i) = round(table2array(mdl.Coefficients(2,1)),3); %calls the slope given for the linear regression of the data using the fitlm function
-    Results.DIndexAverage(i) = round(mean(A.DIndex),1); %calculates the average D index for the station and adds that to a new table
-    Results.DIndexRsqr(i) = mdl.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
-    Results.DIndexPValue(i) = round(table2array(mdl.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
-    title(compose(tempNames(2,1)+"\n"+Results.DIndexAverage(i)+"\n"+Results.DIndexSlope(i)), 'FontSize', 11);
+    HResults.DIndexSlope(i) = round(table2array(mdlA.Coefficients(2,1)),3); %calls the slope given for the linear regression of the data using the fitlm function
+    HResults.DIndexAverage(i) = round(mean(A.DIndex),1); %calculates the average D index for the station and adds that to a new table
+    HResults.DIndexRsqr(i) = mdlA.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    HResults.DIndexPValue(i) = round(table2array(mdlA.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    title(compose(tempNames(2,1)+"\n"+HResults.DIndexAverage(i)+"\n"+HResults.DIndexSlope(i)), 'FontSize', 11);
 end
 %use the below script when you want to automatically make tiff files for
 %the given graphs. See H-Index for issues with this function
