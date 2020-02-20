@@ -31,39 +31,11 @@ folder = strcat(pwd,'/',newFolder); %calls the path of the current file director
 HIndex = zeros(2013-1890+1,23);
 HIndex(:,1) = (1890:2013)';
 
-% % This section of script can be used to make the entire H-Index data set
-% adjustable by date. However, I've removed it for now because I can adjust
-% date during the graphin section more effectively
-% if useStartYear == 1 && useStopYear == 1
-%     HIndex = zeros(stopYear-startYear+1,23);
-%     HIndex(:,1) = (startYear:stopYear)';
-% elseif useStartYear == 1 && useStopeYear == 0
-%     HIndex = zeros(2013-startYear+1,23);
-%     HIndex(:,1) = (startYear:2013)';
-% elseif useStartYear == 0 && useStopYear == 1
-%     HIndex = zeros(1890-startYear+1,23);
-%     HIndex(:,1) = (1890:stopYear)';
-% else
-%     HIndex = zeros(2013-1890+1,23);
-%     HIndex(:,1) = (1890:2013)';
-% end
-
 for i = 1:stationLength %for each station
     baseFileName = stationNames(i); %this is the name of the file excluding file type. 
     fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path
     temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
     temporaryFile.TMAX = round(temporaryFile.TMAX,0);
-    %creates an array from the starting year to the ending year of the stations available weather data
-%     commented out this section of script for the same reason as above.
-%     if useStartYear == 1 && useStopYear == 0
-%         YEAR = transpose(startYear:max(temporaryFile.YEAR));
-%     elseif useStartYear == 1 && useStopYear == 1
-%         YEAR = transpose(startYear:stopYear);
-%     elseif useStartYear == 0 && useStopYear == 1
-%         YEAR = transpose(min(temporaryFile.YEAR):stopYear);
-%     else     
-%         YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
-%     end
     YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
     temporaryHIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
     temporaryHIndex.HIndex = zeros(height(temporaryHIndex),1);
@@ -127,7 +99,7 @@ for i = 1:length(tableStationNames) %for each station in station names
     pos=get(gca,'Position');
     set(gca,'Position',[pos(1,1) pos(1,2) pos(1,3)+.03 pos(1,4)]) %subplot position
     
-    %subplot('Position',[(j-1)*1/width (height-i)*1/numRecsDown 1/width 1/height])
+   
     lA = plot(A.YEAR,A.HIndex); %adds a line to the plot for additional clarity
     hold on %add each station to the same plot
     
