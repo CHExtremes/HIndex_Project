@@ -9,7 +9,7 @@ clear
 clc
 
 
-%% 1
+%% 1 Universal Constants
 folderName = 'Weather_CSV'; %variable for easy change of folder name
 folderInfo = dir(folderName);  %creates a structure array with all the file names in "folderName"
 folderLength = length(folderInfo); 
@@ -32,7 +32,7 @@ NScentral = [8,9,10,13,17];
 south = [14,15,16,18,19,20,21,22,23,24];
 whole = 2:24;
 climateZone = {west, EWcentral, east, north, NScentral, south,whole};
-%% 2
+%% 2 Calculating H-index
 %this will be the first steps of creating the C/H index. it will start by
 %anazyling a single station on a yearly basis and produce a bar graph at
 %the end
@@ -117,7 +117,7 @@ for i = 1:stationLength %for each station
     end
 end
 timeHindex = toc
-%%
+%% 3 graphing H-index time series
 %creates a table to store all statistical values for all results for a
 %given Index
 HResults = table;
@@ -319,7 +319,7 @@ end
 %want to use it over manually saving graphs.
 %set(gcf,'PaperPositionMode','auto') %set the print area same as paper
 %print('-dtiff','-r600', '12.3.19_H_Index_Subplots')
-%%
+%% 4 Graphing H-index decadal analysis
 %creates a bar graph with the average H index for each decade between 1911
 %and 2010
 % useLIndex = 1;
@@ -360,7 +360,7 @@ else
 end
 xlabel("Decade")
 
-%%
+%% 4.1 graphing decadal analysis subplots
 figure('name','Hbar');
 for i = 1:2
     subplot(2,1,i)
@@ -383,7 +383,7 @@ for i = 1:2
     xlabel("Decade")
 end
 
-%% 3 
+%% 5 Calculating C-index
 %create a C-Index
 clc
 tic
@@ -432,7 +432,7 @@ for i = 1:stationLength %for each station
     end
 end
 timeCIndex = toc
-%%
+%% 7 Graphing C-index time series
 CResults = table;
 CResults.NAME = tableStationNames';
 %for now, I'm only controlling the year from the H-Index section
@@ -605,7 +605,7 @@ end
 %set(gcf,'PaperPositionMode','auto') %set the print area same as paper
 %print('-dtiff','-r600', 'C_Index_Subplots')
 
-%%
+%% 8 Graphing C-index decadal bar graph analysis
 cDecades = decades;
 cDecades.MEAN(2,1) = mean(CIndex(CIndex(:,1) <= max(cDecades.Var1(2,:)) & CIndex(:,1) >= min(cDecades.Var1(2,:)),cell2mat(climateZone(1))), 'all');
 %calculates the average C index for the entire period between 1911-2010
@@ -627,7 +627,7 @@ ylabel("Change in C-index (days/year)")
 
 xlabel("Decade")
 legend("West","NE Central", "East", "North", "NS Central", "South", "Entire State")
-%%
+%% 8.1 C-index decadal bar graph subplots
 figure('name','Cbar');
 for i = 1:2
     subplot(2,1,i)
@@ -642,5 +642,633 @@ for i = 1:2
     
     title("Difference of C-index decadal and centenial average for 1911-2010")
     ylabel("Change in C-index (days/year)")
+    xlabel("Decade")
+end
+%% 9 Calculationg W-index
+%WIndex will be the Index of wetness. This code will look at each month and
+%see if it got any rain at all. 
+%start with precip max
+clc
+tic
+%stationLength = 1;
+%calls the path of the current file directory
+stationLength = length(stationNames);
+WIndex = zeros(2013-1890+1,23);
+WIndex(:,1) = (1890:2013)';
+useInches = 0;
+for i = 1:stationLength %for each station
+    baseFileName = stationNames(i); %this is the name of the file excluding file type. 
+    fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
+    temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
+    temporaryFile.RAIN = round(temporaryFile.RAIN,0); %rounds the result to be a whole number, since we don't have measure values for mm to the tenthousandths place.
+    if useInches == 1        
+        temporaryFile.RAIN = round(temporaryFile.RAIN/25.4,2); %converts precipitations values from mm to inches
+    end
+    %creates an array from the starting year to the ending year of the stations available weather data
+    YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
+    temporaryWIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
+    temporaryWIndex.WIndex = zeros(height(temporaryWIndex),1);
+    counter = 1;
+    for j = temporaryWIndex.YEAR(1):temporaryWIndex.YEAR(end)%for each year at this station
+        year = temporaryFile(temporaryFile.YEAR==j,:); %locates the index values for the given year and creates a temporary matrix for the given year       
+        currentPrecip = max(year.RAIN); %records max precip for the given year        
+        %Count the number of times where the daily precip is greater than or
+        %equal to the maximum precip
+        while counter < currentPrecip %checks to see if the counter is smaller than the currentTemp. This is to make sure that the value is an H-Index value.
+            counter = 0;
+            for h = 1:height(year)% for days in this year
+                if year.RAIN(h) >= currentPrecip %If the value at row h and column TMaxColumn are greater than currentTemp
+                   if useInches == 1
+                       counter = counter + 0.01;
+                   else
+                       counter = counter + 1;
+                   end %increase counter by 1
+                end    
+            end
+            if counter < currentPrecip %if the counter is smaller than currentTemp then the H-index is not valid, so we reduce it by one and repeat the loop.
+                if useInches == 1
+                    currentPrecip = currentPrecip - 0.01;
+                else
+                    currentPrecip = currentPrecip - 1 ;
+                end
+            end
+        end
+        if useInches == 1
+            temporaryWIndex.WIndex(j-temporaryWIndex.YEAR(1)+1) = currentPrecip*100; %stores the max H-index value for each year in temporaryHIndex
+        else
+            temporaryWIndex.WIndex(j-temporaryWIndex.YEAR(1)+1) = currentPrecip;
+        end
+    end
+    
+    for j = 1:height(temporaryWIndex) %for the number of years at the current station
+        for h = 1:length(WIndex) %for full array of years being analyzed
+           if temporaryWIndex.YEAR(j) == WIndex(h,1) %Checks to make sure that the years are the same for the given station
+              WIndex(h,i+1)=temporaryWIndex.WIndex(j); %if the years are the same, then the yearly value for the station is stored in a column specifically for that station
+           end
+        end
+    end  
+end
+
+timeWIndex = toc;
+%% 10 Graphing W-index time series
+WResults = table;
+WResults.NAME = tableStationNames';
+
+% startYear = 1981;
+% stopYear = 2010;
+% useStartYear = 0;
+% useStopYear = 0;
+figure('Name', 'W-Index')
+
+
+for i = 1:length(tableStationNames) %for each station in station names 
+    %this section creates an array of subplots where each station has its
+    %own plot showing the data points in orange, the change in time in
+    %blue, and the general trend in black.
+    tempNames = split(tableStationNames(i), '_'); %assigns a variable to the stations name and cuts out any unnecissary labels used for organization purposes
+    WResults.NAME(i) = tempNames(2,1); 
+  
+    A = array2table(WIndex(WIndex(:,1+i) ~= 0,[ 1 1+i])); %for each station, create a new array with the non-zero values and their corresponding years
+    
+    A.Properties.VariableNames{'Var1'} = 'YEAR'; 
+    A.Properties.VariableNames{'Var2'} = 'WIndex';  
+    B = A(A.YEAR>=startYear & A.YEAR <=stopYear,:);  
+    
+    subplot(4,6,i)
+    pos=get(gca,'Position');
+    set(gca,'Position',[pos(1,1) pos(1,2) pos(1,3)+.03 pos(1,4)]) %subplot position
+    
+   
+    lA = plot(A.YEAR,A.WIndex); %adds a line to the plot for additional clarity
+    hold on %add each station to the same plot    
+    mdlA = fitlm(A, 'WIndex ~ YEAR'); %performs a linear regression for the Year and the H Index    
+    zA = plot(mdlA); %plots the linear regression and data point    
+    
+    xA = A.YEAR;
+    yA = A.WIndex;
+    
+    meanB = B;
+    meanB.WIndex(:) = mean(B.WIndex);
+    zB = plot(meanB.YEAR, meanB.WIndex);
+    zB.Color = 'r';  
+    %below are cWanges to the colors and markers of the plot for additional
+    %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
+    %can turn these on later if we want to visually analyze the error
+    %margins.
+    zA(1).Color = 'none'; %point color changed to make them invisible for less busy graphs%'#D95319'; %sets data points to be orange
+    zA(1).Marker = '.';
+    zA(1).MarkerSize = 10;
+    zA(2).Color = 'k';
+    zA(2).LineWidth = 1;
+    zA(3).Color = 'none';
+    zA(4).Color = 'none';   
+    
+    legend('off'); %hides the automatic legend generated by fitlm
+    
+    %if statement to set axis on left and bottom edge of subplot matrix
+    %instead of on each plot
+    if i == 19 || i == 20 || i == 21 || i == 22 || i == 23 
+        xlabel('Year', 'FontSize', 11)
+        set(gca,'Xtick',[1921 1951 1981 2011]);
+        %xticks(gca, 1890:2010, 4)
+    else
+        xlabel('')
+        xticks('')
+    end
+    
+    %if statement that allows greater control on the years examined
+    if useStartYear == 1 && useStopYear == 0
+        xlim([startYear 2014])
+    elseif useStartYear == 1 && useStopYear == 1
+        xlim([startYear (stopYear+1)])
+    elseif useStartYear == 0 && useStopYear == 1
+        xlim([1890 (stopYear+1)])
+    else     
+        xlim([1890 2014])
+    end
+    
+    % %sets boundries for the y axis for all graphs to be equal
+    if useInches == 1 
+        ylim([15 46])
+    else
+        ylim([5 26])
+    end
+    
+    %If statement to make sure that only far left subplots have axis labels
+    %and ticks marks
+    if i == 1 || i == 7 || i == 13 || i == 19
+         
+        ylabel('W - Index (days/year)', 'FontSize', 11)
+    
+        yticks('auto')
+    else
+        ylabel('')
+        yticks('')
+    end
+    %this section  creates a table statistically important values for both
+    %the POR and the specified period
+    
+    
+    %this code runs trends analysis on x and y as independant and depedant variables
+    %it tests the hypothesis of no correlation against the alternative
+    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
+    %we reject the hypothesis.
+    %analysis for the whole period of record
+    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
+    rho_pA(i,1:3)=[i,rho,p2];
+    [r,p3]=corr(xA,yA);%pearson (linear) method
+    r_pA(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y); 
+    
+    %Allocates a number to each station based on there Climate Division in
+    %the state of Kansas
+    
+    if WResults.NAME(i,1) == "Saint Francis"
+        WResults.climateDivision(i) = 1;
+    elseif WResults.NAME(i,1) ==  "Oberlin"  
+        WResults.climateDivision(i) = 1;
+    elseif WResults.NAME(i,1) ==   "Colby"
+        WResults.climateDivision(i) = 1;      
+    elseif WResults.NAME(i) == "Phillipsburg"
+        WResults.climateDivision(i) = 2;
+    elseif WResults.NAME(i) == "Minneapolis" 
+        WResults.climateDivision(i) = 2;    
+    elseif WResults.NAME(i) == "Horton" 
+        WResults.climateDivision(i) = 3;
+    elseif WResults.NAME(i) == "Atchison" 
+        WResults.climateDivision(i) = 3;
+    elseif WResults.NAME(i) == "Manhattan"
+        WResults.climateDivision(i) = 3;    
+    elseif WResults.NAME(i) == "Tribune"
+        WResults.climateDivision(i) = 4;
+    elseif WResults.NAME(i) == "Wakeeney"
+        WResults.climateDivision(i) = 4;    
+    elseif WResults.NAME(i) == "Hays"
+        WResults.climateDivision(i) = 5;
+    elseif WResults.NAME(i) == "McPherson"
+        WResults.climateDivision(i) = 5;    
+    elseif WResults.NAME(i) == "Ottawa"
+        WResults.climateDivision(i) = 6;
+    elseif WResults.NAME(i) == "Lakin" 
+        WResults.climateDivision(i) = 7;
+    elseif WResults.NAME(i) == "Elkhart" 
+        WResults.climateDivision(i) = 7;
+    elseif WResults.NAME(i) == "Ashland"
+        WResults.climateDivision(i) = 7;    
+    elseif WResults.NAME(i) == "Larned"
+        WResults.climateDivision(i) = 8;
+    elseif WResults.NAME(i) == "MedicineLodge"
+        WResults.climateDivision(i) = 8;    
+    elseif WResults.NAME(i) == "Winfield"
+        WResults.climateDivision(i) = 9;             
+    elseif WResults.NAME(i) == "Sedan" 
+        WResults.climateDivision(i) = 9;         
+    elseif WResults.NAME(i) == "Independence" 
+        WResults.climateDivision(i) = 9;            
+    elseif WResults.NAME(i) == "FortScott" 
+        WResults.climateDivision(i) = 9;         
+    elseif WResults.NAME(i) == "Columbus"
+        WResults.climateDivision(i) = 9;         
+    end
+   
+    
+    
+    WResults.slopePOR(i) = round(table2array(mdlA.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm function
+    WResults.adjustedSlopePOR(i) = WResults.slopePOR(i)*100; %this converts the slope from days/year to days/century
+    WResults.rPOR(i) = r_pA(i,2);
+    WResults.rSqrPOR(i) = mdlA.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    WResults.rPValuePOR(i) = round(table2array(mdlA.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    WResults.rhoPOR(i) = rho_pA(i,2);
+    WResults.rhoPValuePOR(i) = rho_pA(i,3);
+    WResults.tauPOR(i) = tau_pA(i,2);
+    WResults.tauPValuePOR(i)= tau_pA(i,3);
+    WResults.minPOR(i) = min(A.WIndex);
+    WResults.maxPOR(i) = max(A.WIndex);
+    WResults.meanPOR(i) = round(mean(A.WIndex),1); %calculates the average H index for the station and adds that to a new table
+    WResults.medianPOR(i) = median(A.WIndex);
+    
+    WResults.minSP(i) = min(B.WIndex);
+    WResults.maxSP(i) = max(B.WIndex);
+    WResults.meanSP(i) = round(mean(B.WIndex),1);
+    WResults.medianSP(i) = median(B.WIndex);    
+  
+    title(compose(tempNames(2,1)+"\n"+num2str(WResults.slopePOR(i)*100,"%#.1f")),'FontSize', 11);
+end
+
+
+%use the below script when you want to automatically make tiff files for
+%the given graphs. There is an issue with this function in that it doesn't
+%expand the window before saving the file, so it compresses subplots to an
+%unreadible level. I'll need to find a way to fix this later if we still
+%want to use it over manually saving graphs.
+%set(gcf,'PaperPositionMode','auto') %set the print area same as paper
+%print('-dtiff','-r600', '12.3.19_H_Index_Subplots')
+%% 11 Graphing W-index decadal analysis
+%creates a bar graph with the average H index for each decade between 1911
+%and 2010
+% useLIndex = 1;
+
+wDecades = decades;
+wDecades.MEAN(2,1) = mean(WIndex(WIndex(:,1) <= max(wDecades.Var1(2,:)) & WIndex(:,1) >= min(wDecades.Var1(2,:)),cell2mat(climateZone(1))), 'all');
+%calculates the average H/L index for the entire period between 1911-2010
+base = mean(WIndex(WIndex(:,1) <= wDecades.Var1(10,10) & WIndex(:,1) >= wDecades.Var1(1,1),2:end),'all');
+
+%tis loop calculates the average H/L index for each decade from 1911-2010
+for j = 1:height(wDecades)
+    for h = 1:7      
+
+        wDecades.MEAN(j,h) = mean(WIndex(WIndex(:,1) <= max(wDecades.Var1(j,:)) & WIndex(:,1) >= min(wDecades.Var1(j,:)),cell2mat(climateZone(h))), 'all');            
+        wDecades.DIFF(j,h) = wDecades.MEAN(j,h)-base;       
+        
+        decadeNames (j) = compose(num2str(min(wDecades.Var1(j,:))-1)+"s");        
+    end
+end
+figure('name','Wbar');
+bar(categorical(decadeNames),wDecades.DIFF); %creates a bar graph showing the difference between the decadal average and the centenial average of 1911-2010
+
+title("Difference of W-index decadal and centenial average for 1911-2010")
+ylabel("Change in W-index (days/year)")
+legend("West","NE Central", "East", "North", "NS Central", "South", "Entire State")
+
+xlabel("Decade")
+
+%% 11.1 graphing decadal analysis subplots
+figure('name','Wbar');
+for i = 1:2
+    subplot(2,1,i)
+    if i == 1
+        %creates a bar graph showing the difference between the decadal average and the centenial average of 1911-2010
+        bar(categorical(decadeNames),wDecades.DIFF(:,[1,2,3,7])); %graphs climate zones of west, EW central, and East        
+        legend("West","NE Central", "East", "Entire State")
+    else
+        bar(categorical(decadeNames),wDecades.DIFF(:,[4,5,6,7])); %graphs climate zones for north, NS central, and South
+        legend("North", "NS Central", "South", "Entire State")
+    end
+    
+    if useLIndex == 1
+        title("Difference of L-index decadal and centenial average for 1911-2010")
+        ylabel("Change in L-index (days/year)")
+    else
+        title("Difference of W-index decadal and centenial average for 1911-2010")
+        ylabel("Change in W-index (days/year)")
+    end
+    xlabel("Decade")
+end
+
+%%  12 Calculating D-index
+%Writes a dry index, D-Index. This could be done by counting x number of
+%periods that had x number of days with no rain. I don't think that will be
+%very informative since prolonged dry periods(drought) are more likely to
+%be influential than knowning that there are more, shorter dry periods.
+clc
+tic
+%stationLength = 1;
+ %calls the path of the current file directory
+stationLength = length(stationNames);
+DIndex = zeros(2013-1890+1,23);
+DIndex(:,1) = (1890:2013)';
+for i = 1:stationLength %for each station
+    baseFileName = stationNames(i); %this is the name of the file excluding file type. 
+    fullFileName = fullfile(folder, baseFileName); %creates a variable for the full file path to ensure no errors related to file path    
+    temporaryFile = readtable(fullFileName); %creates a temporary matrix of the the data for the current station name.
+    %creates an array from the starting year to the ending year of the stations available weather data
+   
+    YEAR = transpose(min(temporaryFile.YEAR):max(temporaryFile.YEAR));
+    
+    temporaryDIndex = table(YEAR); %creates an column array for the years of the H-Indecies 
+    temporaryDIndex.DIndex = zeros(height(temporaryDIndex),1);
+    counter = 0;
+    dryness = 1; %dryness is the minimum precipitation threshold for a day to be considered 'wet'
+    for j = temporaryDIndex.YEAR(1):temporaryDIndex.YEAR(end)%for each year at this station
+            year = temporaryFile(temporaryFile.YEAR==j,:); %locates the index values for the given year and creates a temporary matrix for the given year       
+            currentDryPeriod = 0;
+            tempDryPeriod = 0;
+            counter = 0;
+            for D = 1:height(year) %this loop identifies the longest dry period for the given year               
+                if year.RAIN(D) < dryness
+                    tempDryPeriod = tempDryPeriod + 1;
+                else
+                     if tempDryPeriod > currentDryPeriod
+                         currentDryPeriod = tempDryPeriod;
+                     end
+                     tempDryPeriod = 0;
+                end          
+            end
+            
+            while counter < currentDryPeriod
+                counter = 0;
+                tempDryPeriod = 0;
+                for h = 1:height(year)% for days in this year
+                    
+                    if year.RAIN(h) < dryness
+                        tempDryPeriod = tempDryPeriod + 1;
+                    else
+                        if tempDryPeriod >= currentDryPeriod
+                            counter = counter + 1;
+                        end
+                        tempDryPeriod = 0;
+                    end                    
+                end
+                if counter < currentDryPeriod
+                    currentDryPeriod = currentDryPeriod-1;
+                end
+            end
+            temporaryDIndex.DIndex(j-temporaryDIndex.YEAR(1)+1) = currentDryPeriod;       
+    end
+    
+    for j = 1:height(temporaryDIndex) %for the number of years at the current station
+        for h = 1:length(DIndex) %for full array of years being analyzed
+           if temporaryDIndex.YEAR(j) == DIndex(h,1) %Checks to make sure that the years are the same for the given station
+              DIndex(h,i+1)=temporaryDIndex.DIndex(j); %if the years are the same, then the yearly value for the station is stored in a column specifically for that station
+           end
+        end
+    end  
+end
+timeDIndex = toc;
+%% 13 graphing D-index time series
+
+DResults = table;
+DResults.NAME = tableStationNames';
+
+% startYear = 1981;
+% stopYear = 2010;
+% useStartYear = 0;
+% useStopYear = 0;
+figure('Name', 'D-Index')
+
+
+for i = 1:length(tableStationNames) %for each station in station names 
+    %this section creates an array of subplots where each station has its
+    %own plot showing the data points in orange, the change in time in
+    %blue, and the general trend in black.
+    tempNames = split(tableStationNames(i), '_'); %assigns a variable to the stations name and cuts out any unnecissary labels used for organization purposes
+    DResults.NAME(i) = tempNames(2,1); 
+  
+    A = array2table(DIndex(DIndex(:,1+i) ~= 0,[ 1 1+i])); %for each station, create a new array with the non-zero values and their corresponding years
+    
+    A.Properties.VariableNames{'Var1'} = 'YEAR'; 
+    A.Properties.VariableNames{'Var2'} = 'DIndex';  
+    B = A(A.YEAR>=startYear & A.YEAR <=stopYear,:);  
+    
+    subplot(4,6,i)
+    pos=get(gca,'Position');
+    set(gca,'Position',[pos(1,1) pos(1,2) pos(1,3)+.03 pos(1,4)]) %subplot position
+    
+   
+    lA = plot(A.YEAR,A.DIndex); %adds a line to the plot for additional clarity
+    hold on %add each station to the same plot    
+    mdlA = fitlm(A, 'DIndex ~ YEAR'); %performs a linear regression for the Year and the H Index    
+    zA = plot(mdlA); %plots the linear regression and data point    
+    
+    xA = A.YEAR;
+    yA = A.DIndex;
+    
+    meanB = B;
+    meanB.DIndex(:) = mean(B.DIndex);
+    zB = plot(meanB.YEAR, meanB.DIndex);
+    zB.Color = 'r';  
+    %below are cWanges to the colors and markers of the plot for additional
+    %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
+    %can turn these on later if we want to visually analyze the error
+    %margins.
+    zA(1).Color = 'none'; %point color changed to make them invisible for less busy graphs%'#D95319'; %sets data points to be orange
+    zA(1).Marker = '.';
+    zA(1).MarkerSize = 10;
+    zA(2).Color = 'k';
+    zA(2).LineWidth = 1;
+    zA(3).Color = 'none';
+    zA(4).Color = 'none';   
+    
+    legend('off'); %hides the automatic legend generated by fitlm
+    
+    %if statement to set axis on left and bottom edge of subplot matrix
+    %instead of on each plot
+    if i == 19 || i == 20 || i == 21 || i == 22 || i == 23 
+        xlabel('Year', 'FontSize', 11)
+        set(gca,'Xtick',[1921 1951 1981 2011]);
+        %xticks(gca, 1890:2010, 4)
+    else
+        xlabel('')
+        xticks('')
+    end
+    
+    %if statement that allows greater control on the years examined
+    if useStartYear == 1 && useStopYear == 0
+        xlim([startYear 2014])
+    elseif useStartYear == 1 && useStopYear == 1
+        xlim([startYear (stopYear+1)])
+    elseif useStartYear == 0 && useStopYear == 1
+        xlim([1890 (stopYear+1)])
+    else     
+        xlim([1890 2014])
+    end
+    
+    % %sets boundries for the y axis for all graphs to be equal
+    if useInches == 1 
+        ylim([15 46])
+    else
+        ylim([6 13])
+    end
+    
+    %If statement to make sure that only far left subplots have axis labels
+    %and ticks marks
+    if i == 1 || i == 7 || i == 13 || i == 19
+         
+        ylabel('D - Index (days/year)', 'FontSize', 11)
+    
+        yticks('auto')
+    else
+        ylabel('')
+        yticks('')
+    end
+    %this section  creates a table statistically important values for both
+    %the POR and the specified period
+    
+    
+    %this code runs trends analysis on x and y as independant and depedant variables
+    %it tests the hypothesis of no correlation against the alternative
+    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
+    %we reject the hypothesis.
+    %analysis for the whole period of record
+    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
+    rho_pA(i,1:3)=[i,rho,p2];
+    [r,p3]=corr(xA,yA);%pearson (linear) method
+    r_pA(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y); 
+    
+    %Allocates a number to each station based on there Climate Division in
+    %the state of Kansas
+    
+    if DResults.NAME(i,1) == "Saint Francis"
+        DResults.climateDivision(i) = 1;
+    elseif DResults.NAME(i,1) ==  "Oberlin"  
+        DResults.climateDivision(i) = 1;
+    elseif DResults.NAME(i,1) ==   "Colby"
+        DResults.climateDivision(i) = 1;      
+    elseif DResults.NAME(i) == "Phillipsburg"
+        DResults.climateDivision(i) = 2;
+    elseif DResults.NAME(i) == "Minneapolis" 
+        DResults.climateDivision(i) = 2;    
+    elseif DResults.NAME(i) == "Horton" 
+        DResults.climateDivision(i) = 3;
+    elseif DResults.NAME(i) == "Atchison" 
+        DResults.climateDivision(i) = 3;
+    elseif DResults.NAME(i) == "Manhattan"
+        DResults.climateDivision(i) = 3;    
+    elseif DResults.NAME(i) == "Tribune"
+        DResults.climateDivision(i) = 4;
+    elseif DResults.NAME(i) == "Wakeeney"
+        DResults.climateDivision(i) = 4;    
+    elseif DResults.NAME(i) == "Hays"
+        DResults.climateDivision(i) = 5;
+    elseif DResults.NAME(i) == "McPherson"
+        DResults.climateDivision(i) = 5;    
+    elseif DResults.NAME(i) == "Ottawa"
+        DResults.climateDivision(i) = 6;
+    elseif DResults.NAME(i) == "Lakin" 
+        DResults.climateDivision(i) = 7;
+    elseif DResults.NAME(i) == "Elkhart" 
+        DResults.climateDivision(i) = 7;
+    elseif DResults.NAME(i) == "Ashland"
+        DResults.climateDivision(i) = 7;    
+    elseif DResults.NAME(i) == "Larned"
+        DResults.climateDivision(i) = 8;
+    elseif DResults.NAME(i) == "MedicineLodge"
+        DResults.climateDivision(i) = 8;    
+    elseif DResults.NAME(i) == "Winfield"
+        DResults.climateDivision(i) = 9;             
+    elseif DResults.NAME(i) == "Sedan" 
+        DResults.climateDivision(i) = 9;         
+    elseif DResults.NAME(i) == "Independence" 
+        DResults.climateDivision(i) = 9;            
+    elseif DResults.NAME(i) == "FortScott" 
+        DResults.climateDivision(i) = 9;         
+    elseif DResults.NAME(i) == "Columbus"
+        DResults.climateDivision(i) = 9;         
+    end
+   
+    
+    
+    DResults.slopePOR(i) = round(table2array(mdlA.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm function
+    DResults.adjustedSlopePOR(i) = DResults.slopePOR(i)*100; %this converts the slope from days/year to days/century
+    DResults.rPOR(i) = r_pA(i,2);
+    DResults.rSqrPOR(i) = mdlA.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+    DResults.rPValuePOR(i) = round(table2array(mdlA.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+    DResults.rhoPOR(i) = rho_pA(i,2);
+    DResults.rhoPValuePOR(i) = rho_pA(i,3);
+    DResults.tauPOR(i) = tau_pA(i,2);
+    DResults.tauPValuePOR(i)= tau_pA(i,3);
+    DResults.minPOR(i) = min(A.DIndex);
+    DResults.maxPOR(i) = max(A.DIndex);
+    DResults.meanPOR(i) = round(mean(A.DIndex),1); %calculates the average H index for the station and adds that to a new table
+    DResults.medianPOR(i) = median(A.DIndex);
+    
+    DResults.minSP(i) = min(B.DIndex);
+    DResults.maxSP(i) = max(B.DIndex);
+    DResults.meanSP(i) = round(mean(B.DIndex),1);
+    DResults.medianSP(i) = median(B.DIndex);    
+  
+    title(compose(tempNames(2,1)+"\n"+num2str(DResults.slopePOR(i)*100,"%#.1f")),'FontSize', 11);
+end
+
+
+%use the below script when you want to automatically make tiff files for
+%the given graphs. There is an issue with this function in that it doesn't
+%expand the window before saving the file, so it compresses subplots to an
+%unreadible level. I'll need to find a way to fix this later if we still
+%want to use it over manually saving graphs.
+%set(gcf,'PaperPositionMode','auto') %set the print area same as paper
+%print('-dtiff','-r600', '12.3.19_H_Index_Subplots')
+%% 14 Graphing D-index decadal analysis
+%creates a bar graph with the average H index for each decade between 1911
+%and 2010
+% useLIndex = 1;
+
+dDecades = decades;
+dDecades.MEAN(2,1) = mean(DIndex(DIndex(:,1) <= max(dDecades.Var1(2,:)) & DIndex(:,1) >= min(dDecades.Var1(2,:)),cell2mat(climateZone(1))), 'all');
+%calculates the average H/L index for the entire period between 1911-2010
+base = mean(DIndex(DIndex(:,1) <= dDecades.Var1(10,10) & DIndex(:,1) >= dDecades.Var1(1,1),2:end),'all');
+
+%tis loop calculates the average H/L index for each decade from 1911-2010
+for j = 1:height(dDecades)
+    for h = 1:7      
+
+        dDecades.MEAN(j,h) = mean(DIndex(DIndex(:,1) <= max(dDecades.Var1(j,:)) & DIndex(:,1) >= min(dDecades.Var1(j,:)),cell2mat(climateZone(h))), 'all');            
+        dDecades.DIFF(j,h) = dDecades.MEAN(j,h)-base;       
+        
+        decadeNames (j) = compose(num2str(min(dDecades.Var1(j,:))-1)+"s");        
+    end
+end
+figure('name','Dbar');
+bar(categorical(decadeNames),dDecades.DIFF); %creates a bar graph showing the difference between the decadal average and the centenial average of 1911-2010
+
+title("Difference of D-index decadal and centenial average for 1911-2010")
+ylabel("Change in D-index (days/year)")
+legend("West","NE Central", "East", "North", "NS Central", "South", "Entire State")
+
+xlabel("Decade")
+
+%% 14.1 graphing decadal analysis subplots
+figure('name','Dbar');
+for i = 1:2
+    subplot(2,1,i)
+    if i == 1
+        %creates a bar graph showing the difference between the decadal average and the centenial average of 1911-2010
+        bar(categorical(decadeNames),dDecades.DIFF(:,[1,2,3,7])); %graphs climate zones of west, EW central, and East        
+        legend("West","NE Central", "East", "Entire State")
+    else
+        bar(categorical(decadeNames),dDecades.DIFF(:,[4,5,6,7])); %graphs climate zones for north, NS central, and South
+        legend("North", "NS Central", "South", "Entire State")
+    end
+    
+    if useLIndex == 1
+        title("Difference of L-index decadal and centenial average for 1911-2010")
+        ylabel("Change in L-index (days/year)")
+    else
+        title("Difference of D-index decadal and centenial average for 1911-2010")
+        ylabel("Change in D-index (days/year)")
+    end
     xlabel("Decade")
 end
