@@ -29,41 +29,62 @@ for i = 3:folderLength2
    names(1,(i-2)) =  string(B(1,i));
 end
 newFolder2 = strcat(folderName2);
-folder2 = strcat(pwd,'/',newFolder2);
-baseFileName2 = names; 
-fullFileName2 = fullfile(folder2, baseFileName2); 
-temporaryFile2 = readtable(fullFileName2);
 
 %creates number arrays and tables for the various decades and climate zones
 %used in Kansas for this study
 decades = cell2table({1911:1920 1921:1930 1931:1940 1941:1950 1951:1960 1961:1970 1971:1980 1981:1990 1991:2000 2001:2010}'); %creates a table for each decade between 1911 and 2010
-west = [2,3,4,8,9,14,20,21]; 
-EWcentral = [5,10,11,15,16,17];
-east = [6,7,12,13,18,19,22,23,24];
+west = [10, 20, 30];
+EWcentral = [40, 50, 60];
+east = [70, 80, 90];
 
-north = [2,3,4,5,6,7,11,12];
-NScentral = [8,9,10,13,17];
-south = [14,15,16,18,19,20,21,22,23,24];
-whole = 2:24;
-climateZone = {west, EWcentral, east, north, NScentral, south,whole};
-%%
-wYield = table();
-wYield.YEAR = temporaryFile2.Year(temporaryFile2.Year >= 1911 & temporaryFile2.Year <= 2010); 
-wYield.YIELD = round(temporaryFile2.Value(temporaryFile2.Year >= 1911 & temporaryFile2.Year <= 2010),1);
+north = [10, 40, 70];
+NScentral = [20, 50, 80];
+south = [30, 60, 90];
+whole = 10:10:90;
+agClimateZone = {west, EWcentral, east, north, NScentral, south, whole};
+%% 2 Calculates the decadal averages for grain yield
+folder2 = strcat(pwd,'/',newFolder2);
 
-base = mean(wYield.YIELD);
-yDecades = decades;
-%tis loop calculates the average H/L index for each decade from 1911-2010
-for j = 1:height(yDecades)          
-    yDecades.MEAN(j) = mean(wYield.YIELD(wYield.YEAR <= max(yDecades.Var1(j,:)) & wYield.YEAR >= min(yDecades.Var1(j,:))));            
-    yDecades.DIFF(j) = yDecades.MEAN(j)-base;        
-    decadeNames (j) = compose(num2str(min(yDecades.Var1(j,:))-1)+"s");         
+for i = 5:5%i = 1:length(names)
+    baseFileName2 = names(i); 
+    fullFileName2 = fullfile(folder2, baseFileName2); 
+    temporaryFile2 = readtable(fullFileName2);
+    %temporaryFile2.Year = cell2mat(temporaryFile2.Year);
+    %temporaryFile2.Value = cell2mat(temporaryFile2.Value);
+
+    Yield = table();
+    Yield.YEAR = temporaryFile2.Year(temporaryFile2.Year >= 1911 & temporaryFile2.Year <= 2010); 
+    Yield.REGION = temporaryFile2.AgDistrictCode(temporaryFile2.Year >= 1911 & temporaryFile2.Year <= 2010); 
+    Yield.YIELD = round(temporaryFile2.Value(temporaryFile2.Year >= 1911 & temporaryFile2.Year <= 2010),1);
+
+    base = mean(Yield.YIELD);
+    yDecades = decades;
+    %tis loop calculates the average H/L index for each decade from 1911-2010
+    for j = 1:height(yDecades) 
+        for h = 1:7
+                z = cell2mat(agClimateZone(h));
+                tempYield = Yield;
+                if h ~= 7
+                    tempYield = tempYield(tempYield.REGION == z(1) | tempYield.REGION == z(2) | tempYield.REGION == z(3),:);
+                end
+            yDecades.MEAN(j,h) = mean(tempYield.YIELD(tempYield.YEAR <= max(yDecades.Var1(j,:)) & tempYield.YEAR >= min(yDecades.Var1(j,:))));            
+            yDecades.DIFF(j,h) = yDecades.MEAN(j,h)-base;        
+            decadeNames (j) = compose(num2str(min(yDecades.Var1(j,:))-1)+"s");            
+        end
+    end
+    if i == 5
+        wYield = Yield;
+        wYDecades = yDecades;
+    end
 end
+
+
 %figure('name','Decadal');
 %bar(categorical(decadeNames),yDecades.MEAN); %creates a bar graph showing the difference between the decadal average and the centenial average of 1911-2010
 
 %figure('name', 'Yearly')
 %bar(categorical(wYield.YEAR),wYield.YIELD);
+
 %% 2 Calculating H-index
 %this will be the first steps of creating the C/H index. it will start by
 %anazyling a single station on a yearly basis and produce a bar graph at
@@ -73,6 +94,15 @@ tic
 stationLength = length(stationNames);
 %stationLength = 1;
 
+west = [2,3,4,8,9,14,20,21]; 
+EWcentral = [5,10,11,15,16,17];
+east = [6,7,12,13,18,19,22,23,24];
+
+north = [2,3,4,5,6,7,11,12];
+NScentral = [8,9,10,13,17];
+south = [14,15,16,18,19,20,21,22,23,24];
+whole = 2:24;
+climateZone = {west, EWcentral, east, north, NScentral, south,whole};
 %for if you want to calculate the L-index(using Tmin) instead of the H-index (using Tmax)
 useLIndex = 0; 
 
@@ -360,71 +390,188 @@ end
 %want to use it over manually saving graphs.
 %set(gcf,'PaperPositionMode','auto') %set the print area same as paper
 %print('-dtiff','-r600', '12.3.19_H_Index_Subplots')
-%%
+%% 4.0.1 Calculating time series vs. yearly average grain yield
 %This section compares average grain yield to average H-index for every
-%year from 1911-2010
+%year from 1911-2010 
+y1 = 1911;
+y2 = 2010;
+
 if useLIndex == 1
     avgLIndex = table();
-    avgLIndex.YEAR = LIndex(:,1);
-    avgLIndex.LIndex = mean(LIndex(:,2:end),2);
-    avgLIndex = avgLIndex(avgLIndex.YEAR >= 1911 & avgLIndex.YEAR <= 2010,:);
+    avgWYield = table();
+    avgWYield.YEAR = zeros(82,1);
+    avgWYield.YIELD = zeros(82,7);
 else
     avgHIndex = table();
-    avgHIndex.YEAR = HIndex(:,1);
-    avgHIndex.HIndex = mean(HIndex(:,2:end),2);
-    avgHIndex = avgHIndex(avgHIndex.YEAR >= 1911 & avgHIndex.YEAR <= 2010,:);
+    avgWYield = table();
+    avgWYield.YEAR = zeros(82,1);
+    avgWYield.YIELD = zeros(82,7);
 end
 
-figure('name','avg yield and HIndex')
-yyaxis left
+for i = 1:length(climateZone)
 
-b = bar(wYield.YEAR,wYield.YIELD,1);
-hold on
+    z = cell2mat(agClimateZone(i));
+    tempWYield = wYield;
+    if i ~= 7
+        tempWYield = tempWYield(tempWYield.REGION == z(1) | tempWYield.REGION == z(2) | tempWYield.REGION == z(3),:);
+    end
+    
+     
+    for j = min(tempWYield.YEAR):max(tempWYield.YEAR)
+        avgWYield.YEAR(1-min(tempWYield.YEAR)+j) = j;
+        avgWYield.YIELD(1-min(tempWYield.YEAR)+j,i) = mean(tempWYield.YIELD(tempWYield.YEAR == j));
+    end
+    
 
-mdlC = fitlm(wYield, 'YIELD ~ YEAR');
-zC = plot(mdlC);
 
-zC(1).Color = 'none'; 
-zC(1).Marker = '.';
-zC(1).MarkerSize = 10;
-zC(2).Color = 'c';
-zC(2).LineWidth = 1.15;
-zC(3).Color = 'none';
-zC(4).Color = 'none'; 
-ylabel('Average Wheat Yield (Bu/acre)')
+    if useLIndex == 1       
+        avgLIndex.YEAR = LIndex(:,1);
+        avgLIndex.LIndex(:,i) = mean(LIndex(:,cell2mat(climateZone(i))),2); 
+    else
+        
+        avgHIndex.YEAR = HIndex(:,1);
+        avgHIndex.HIndex(:,i) = mean(HIndex(:,cell2mat(climateZone(i))),2);       
+    end
+end 
 
-yyaxis right
-if useLIndex ==  1
-    p = plot(avgLIndex.YEAR, avgLIndex.LIndex);
-else
-    p = plot(avgHIndex.YEAR, avgHIndex.HIndex);
-end
-p.LineWidth = 1.25;
-p.Color = 'r';
 if useLIndex == 1
-    mdlD = fitlm(avgLIndex, 'LIndex ~ YEAR');   
-    zD = plot(mdlD);
+    avgLIndex = avgLIndex(avgLIndex.YEAR >= y1 & avgLIndex.YEAR <= y2,:);
 else
-    mdlD = fitlm(avgHIndex, 'HIndex ~ YEAR');   
-    zD = plot(mdlD); 
+    avgHIndex = avgHIndex(avgHIndex.YEAR >= y1 & avgHIndex.YEAR <= y2,:);
+end
+%% 4.0.3 Graphing time series vs. Yearly Average Grain Yield
+locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"];
+figure('Name', "TIndex vs Yield, EW")
+for i = [1 2 3 7]
+    if i ~= 7
+        subplot(2,2,i)
+    else
+        subplot(2,2,4)
+    end
+
+    yyaxis left
+    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    hold on
+
+    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    zC = plot(mdlC);
+
+    zC(1).Color = 'none'; 
+    zC(1).Marker = '.';
+    zC(1).MarkerSize = 10;
+    zC(2).Color = 'c';
+    zC(2).LineWidth = 1.15;
+    zC(3).Color = 'none';
+    zC(4).Color = 'none'; 
+    
+    ylabel('Average Wheat Yield (Bu/acre)')
+        
+    yyaxis right
+    if useLIndex ==  1
+        p = plot(avgLIndex.YEAR, avgLIndex.LIndex(:,i));
+        ylim([57 68])
+    else
+        p = plot(avgHIndex.YEAR, avgHIndex.HIndex(:,i));
+        ylim([80 94])
+    end
+      
+    xlim([1910 2011])
+    hold on
+
+    p.LineWidth = 1.15;
+    p.Color = 'r';
+    if useLIndex == 1
+        mdlD = fitlm(avgLIndex.YEAR,avgLIndex.LIndex(:,i));   
+        zD = plot(mdlD);
+    else
+        mdlD = fitlm(avgHIndex.YEAR,avgHIndex.HIndex(:,i));   
+        zD = plot(mdlD); 
+    end
+
+    zD(1).Color = 'none'; 
+    zD(1).Marker = '.';
+    zD(1).MarkerSize = 10;
+    zD(2).Color = 'g';
+    zD(2).LineWidth = 1.15;
+    zD(3).Color = 'none';
+    zD(4).Color = 'none'; 
+
+    if useLIndex == 1
+        ylabel("Average L - Index (days/year)")
+        title(compose(locations(i) + " average L-Index and average wheat yield vs. year"))
+    else
+        ylabel("Average H - Index (days/year)")
+        title(compose(locations(i) +" average H-Index and average wheat yield vs. year"))
+    end 
+    legend off
+    xlabel('Year')
 end
 
-zD(1).Color = 'none'; 
-zD(1).Marker = '.';
-zD(1).MarkerSize = 10;
-zD(2).Color = 'g';
-zD(2).LineWidth = 1.15;
-zD(3).Color = 'none';
-zD(4).Color = 'none'; 
-legend off
-if useLIndex == 1
-    ylabel('Average L - Index (days/year)')
-    title("Average L-Index and average Wheat Yield vs. Year")
-else
-    ylabel('Average H - Index (days/year)')
-    title("Average H-Index and average Wheat Yield vs. Year")
+
+figure('Name', "TIndex vs Yield, NS")
+for i = [4 5 6 7]  
+    
+    subplot(2,2,i-3)    
+    
+    yyaxis left
+    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    hold on
+    ylim([0 60])
+  
+    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    zC = plot(mdlC);
+
+    zC(1).Color = 'none'; 
+    zC(1).Marker = '.';
+    zC(1).MarkerSize = 10;
+    zC(2).Color = 'c';
+    zC(2).LineWidth = 1.15;
+    zC(3).Color = 'none';
+    zC(4).Color = 'none'; 
+    ylabel('Average Wheat Yield (Bu/acre)')
+    
+    yyaxis right
+     if useLIndex ==  1
+         p = plot(avgLIndex.YEAR, avgLIndex.LIndex(:,i));
+         ylim([57 68])
+     else
+         p = plot(avgHIndex.YEAR, avgHIndex.HIndex(:,i));
+         ylim([80 94])
+     end
+    
+    xlim([1910 2011])
+    hold on
+    
+    p.LineWidth = 1.15;
+    p.Color = 'r';
+    if useLIndex == 1
+        mdlD = fitlm(avgLIndex.YEAR,avgLIndex.LIndex(:,i));      
+        zD = plot(mdlD);
+    else
+        mdlD = fitlm(avgHIndex.YEAR,avgHIndex.HIndex(:,i));   
+        zD = plot(mdlD); 
+    end
+
+    zD(1).Color = 'none'; 
+    zD(1).Marker = '.';
+    zD(1).MarkerSize = 10;
+    zD(2).Color = 'g';
+    zD(2).LineWidth = 1.15;
+    zD(3).Color = 'none';
+    zD(4).Color = 'none'; 
+
+    if useLIndex == 1
+        ylabel("Average L - Index (days/year)")
+        title(compose(locations(i) + " average L-Index and average wheat yield vs. year"))
+    else
+        ylabel("Average H - Index (days/year)")
+        title(compose(locations(i) +" average H-Index and average wheat yield vs. year"))
+    end 
+    legend off
+    xlabel('Year')
 end
-%% 4 Graphing H-index decadal analysis
+
+%% 4.0.2 Graphing H-index decadal analysis
 %creates a bar graph with the average H index for each decade between 1911
 %and 2010
 % useLIndex = 1;
@@ -440,6 +587,7 @@ end
 
 %tis loop calculates the average H/L index for each decade from 1911-2010
 for j = 1:height(hDecades)
+    
     for h = 1:7      
         if useLIndex == 1
             hDecades.MEAN(j,h) = mean(LIndex(LIndex(:,1) <= max(hDecades.Var1(j,:)) & LIndex(:,1) >= min(hDecades.Var1(j,:)),cell2mat(climateZone(h))), 'all');            
@@ -487,6 +635,7 @@ for i = 1:2
         ylabel("Change in H-index (days/year)")
     end
     xlabel("Decade")
+    %ylim([-20 20])
 end
 
 %% 5 Calculating C-index
