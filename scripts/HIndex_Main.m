@@ -475,58 +475,98 @@ clc
 CP = table();
 %fileName='annual_pettitt_sort_sample.xlsx';
 %avgLIndex = readtable(fileName);
-for j= 1:length(climateZone)
-    %creates a temporary variable to more easily sort by index value.
-    CP.Region = ["west", "EWcentral", "east", "north", "NScentral", "south", "whole"]';
-    
-    B = avgLIndex;
-    B.LIndex = B.LIndex(:,j);
-    %create a rank column based on year in ascending order
-    for i = 1:height(B)
-       B.YearRank(i) = i; 
-    end
-    %sort temp table B by ascending index magnitude
-    B = sortrows(B,2);
-    %store the altered order of the Year Rank in avg""Index
-    avgLIndex.IndexRank(:,j) = B.YearRank;
-    
-    
-    %Pettitt loop
-    for k = 1:height(avgLIndex) %for the number of rows in avgLIndex
-        avgLIndex.U(k,j)=2*sum(avgLIndex.IndexRank(1:k,j))-k*(height(avgLIndex)+1); %calculates the rank statistic
-        if abs(avgLIndex.U(k,j))==max(abs(avgLIndex.U(:,j))) %determines the postion of the max rank statistic
-            c=k;
+for e = 1:2
+    for j= 1:length(climateZone)
+        %creates a temporary variable to more easily sort by index value.
+        CP.Region = ["west", "EWcentral", "east", "north", "NScentral", "south", "whole"]';
+        if e == 1
+            if useLIndex == 1
+                B = renamevars(avgLIndex,"LIndex","Index");
+                
+            else
+                B = renamevars(avgHIndex,"HIndex","Index");
+            end
+        else
+            B = renamevars(avgWYield,"YIELD","Index");
         end
-    end
-    %determines the year the change point occured at
-    CP.YEAR(j) = c+min(avgLIndex.YEAR)-1;
-    K=max(abs(avgLIndex.U(:,j))); %calculates the statistical change point test statistic
-    K_c=(-log(0.05)*((height(avgLIndex)^3)+(height(avgLIndex)^2))/6)^.5; %calculating the critical value at the give station
-    CP.ChangePoint(j) = K;
-    if K>K_c
-        CP.CL(j)=1;
-        CP.P(j) = 1 - exp((-6*K^2)/(height(avgLIndex)^3+height(avgLIndex)^2));
-    else
         
-        CP.CL(j) = 0;
-        CP.P(j) = 1 - exp((-6*K^2)/(height(avgLIndex)^3+height(avgLIndex)^2));
-    
+        if j > 1
+            B = removevars(B, ["U", "IndexRank"]);
+        end
+        B.Index = B.Index(:,j);
+        %create a rank column based on year in ascending order
+        for i = 1:height(B)
+           B.YearRank(i) = i; 
+        end
+        %sort temp table B by ascending index magnitude
+        B = sortrows(B,2);
+        %store the altered order of the Year Rank in avg""Index
+        
+        if e == 1
+            if useLIndex == 1
+                avgLIndex.IndexRank(:,j) = B.YearRank;
+            else
+                avgHIndex.IndexRank(:,j) = B.YearRank;
+            end
+        else
+            avgWYield.IndexRank(:,j) = B.YearRank;
+        end
+
+
+        %Pettitt loop
+        for k = 1:height(B) %for the number of rows in avgLIndex
+            B.U(k)=2*sum(B.YearRank(1:k))-k*(height(B)+1); %calculates the rank statistic
+            %storing rank statistic                      
+            if abs(B.U(k))==max(abs(B.U)) %determines the postion of the max rank statistic
+                c=k;
+            end
+        end
+        
+        %determines the year the change point occured at
+        CP.YEAR(j) = c+min(B.YEAR)-1;
+        K=max(abs(B.U)); %calculates the statistical change point test statistic
+        K_c=(-log(0.05)*((height(B)^3)+(height(B)^2))/6)^.5; %calculating the critical value at the give station
+        CP.ChangePoint(j) = K;
+        if K>K_c
+            CP.CL(j)=1;
+            CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2));
+        else
+
+            CP.CL(j) = 0;
+            CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2));
+        end     
+        
+        if e ==1
+            if useLIndex == 1
+                avgLIndex.U(:,j)= B.U;
+                climateLCP = CP;
+            else
+                avgHIndex.U(:,j) = B.U;
+                climateHCP = CP;
+            end
+        else
+            avgWYield.U(:,j) =B.U;
+             cropCP = CP;
+        end
+        
+        B = table();
     end
     B = table();
 end
-
-
-
-
 
 %% 4.0.2 Graphing time series vs. Yearly Average Grain Yield
 locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"];
 figure('Name', "TIndex vs Yield, EW")
 
-
+%useLIndex = 0;
 
 for i = [1 2 3 7]
-    changeP = CP.YEAR(i);
+    changeP1 = cropCP.YEAR(i);
+    if useLIndex == 1
+        changeP2 = climateLCP.YEAR(i);
+    else
+        changeP2 = climateHCP.YEAR(i);
+    end
     if i ~= 7
         subplot(2,2,i)
     else
@@ -540,10 +580,10 @@ for i = [1 2 3 7]
     mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP),avgWYield.YIELD(avgWYield.YEAR<=changeP,i));
+    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP),avgWYield.YIELD(avgWYield.YEAR>changeP,i));
+    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -591,13 +631,17 @@ for i = [1 2 3 7]
     if useLIndex == 1
         mdlD = fitlm(avgLIndex.YEAR,avgLIndex.LIndex(:,i));   
         zD = plot(mdlD);
-        mdlD1 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR<=changeP),avgLIndex.LIndex(avgLIndex.YEAR<=changeP,i));   
+        mdlD1 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR<=changeP2),avgLIndex.LIndex(avgLIndex.YEAR<=changeP2,i));   
         zD1 = plot(mdlD1);
-        mdlD2 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR>changeP),avgLIndex.LIndex(avgLIndex.YEAR>changeP,i));   
+        mdlD2 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR>changeP2),avgLIndex.LIndex(avgLIndex.YEAR>changeP2,i));   
         zD2 = plot(mdlD2);
     else
         mdlD = fitlm(avgHIndex.YEAR,avgHIndex.HIndex(:,i));   
         zD = plot(mdlD); 
+         mdlD1 = fitlm(avgHIndex.YEAR(avgHIndex.YEAR<=changeP2),avgHIndex.HIndex(avgHIndex.YEAR<=changeP2,i));   
+        zD1 = plot(mdlD1);
+        mdlD2 = fitlm(avgHIndex.YEAR(avgHIndex.YEAR>changeP2),avgHIndex.HIndex(avgHIndex.YEAR>changeP2,i));   
+        zD2 = plot(mdlD2);
     end
 
     zD(1).Color = 'none'; 
@@ -638,7 +682,12 @@ end
 
 figure('Name', "TIndex vs Yield, NS")
 for i = [4 5 6 7]  
-    changeP = CP.YEAR(i);
+    changeP1 = CP.YEAR(i);
+    if useLIndex == 1
+        changeP2 = climateLCP.YEAR(i);
+    else
+        changeP2 = climateHCP.YEAR(i);
+    end
     subplot(2,2,i-3)    
     
     yyaxis left
@@ -649,10 +698,10 @@ for i = [4 5 6 7]
     mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP),avgWYield.YIELD(avgWYield.YEAR<=changeP,i));
+    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP),avgWYield.YIELD(avgWYield.YEAR>changeP,i));
+    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -695,11 +744,19 @@ for i = [4 5 6 7]
     p.LineWidth = 1.15;
     p.Color = 'r';
     if useLIndex == 1
-        mdlD = fitlm(avgLIndex.YEAR,avgLIndex.LIndex(:,i));      
+        mdlD = fitlm(avgLIndex.YEAR,avgLIndex.LIndex(:,i));   
         zD = plot(mdlD);
+        mdlD1 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR<=changeP2),avgLIndex.LIndex(avgLIndex.YEAR<=changeP2,i));   
+        zD1 = plot(mdlD1);
+        mdlD2 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR>changeP2),avgLIndex.LIndex(avgLIndex.YEAR>changeP2,i));   
+        zD2 = plot(mdlD2);
     else
         mdlD = fitlm(avgHIndex.YEAR,avgHIndex.HIndex(:,i));   
         zD = plot(mdlD); 
+         mdlD1 = fitlm(avgHIndex.YEAR(avgHIndex.YEAR<=changeP2),avgHIndex.HIndex(avgHIndex.YEAR<=changeP2,i));   
+        zD1 = plot(mdlD1);
+        mdlD2 = fitlm(avgHIndex.YEAR(avgHIndex.YEAR>changeP2),avgHIndex.HIndex(avgHIndex.YEAR>changeP2,i));   
+        zD2 = plot(mdlD2);
     end
 
     zD(1).Color = 'none'; 
@@ -709,6 +766,22 @@ for i = [4 5 6 7]
     zD(2).LineWidth = 1.15;
     zD(3).Color = 'none';
     zD(4).Color = 'none'; 
+    
+    zD1(1).Color = 'none'; 
+    zD1(1).Marker = '.';
+    zD1(1).MarkerSize = 10;
+    zD1(2).Color = 'b';
+    zD1(2).LineWidth = 1.15;
+    zD1(3).Color = 'none';
+    zD1(4).Color = 'none';
+    
+    zD2(1).Color = 'none'; 
+    zD2(1).Marker = '.';
+    zD2(1).MarkerSize = 10;
+    zD2(2).Color = 'k';
+    zD2(2).LineWidth = 1.15;
+    zD2(3).Color = 'none';
+    zD2(4).Color = 'none'; 
 
     if useLIndex == 1
         ylabel("Average L - Index (days/year)")
@@ -1077,7 +1150,7 @@ avgCIndex = avgCIndex(avgCIndex.YEAR >= y1 & avgCIndex.YEAR <= y2,:);
 locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"];
 figure('Name', "CIndex vs Yield, EW")
 
-changeP = 1968;
+changeP1 = 1968;
 for i = [1 2 3 7]
     if i ~= 7
         subplot(2,2,i)
@@ -1092,10 +1165,10 @@ for i = [1 2 3 7]
     mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP),avgWYield.YIELD(avgWYield.YEAR<=changeP,i));
+    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP),avgWYield.YIELD(avgWYield.YEAR>changeP,i));
+    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -1169,10 +1242,10 @@ for i = [4 5 6 7]
     mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP),avgWYield.YIELD(avgWYield.YEAR<=changeP,i));
+    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP),avgWYield.YIELD(avgWYield.YEAR>changeP,i));
+    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -1632,7 +1705,7 @@ avgWIndex = avgWIndex(avgWIndex.YEAR >= y1 & avgWIndex.YEAR <= y2,:);
 locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"];
 figure('Name', "WIndex vs Yield, EW")
 
-changeP = 1968;
+changeP1 = 1968;
 for i = [1 2 3 7]
     if i ~= 7
         subplot(2,2,i)
@@ -1647,10 +1720,10 @@ for i = [1 2 3 7]
     mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP),avgWYield.YIELD(avgWYield.YEAR<=changeP,i));
+    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP),avgWYield.YIELD(avgWYield.YEAR>changeP,i));
+    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -1723,10 +1796,10 @@ for i = [4 5 6 7]
     mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP),avgWYield.YIELD(avgWYield.YEAR<=changeP,i));
+    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP),avgWYield.YIELD(avgWYield.YEAR>changeP,i));
+    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -2186,7 +2259,7 @@ avgDIndex = avgDIndex(avgDIndex.YEAR >= y1 & avgDIndex.YEAR <= y2,:);
 locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"];
 figure('Name', "CIndex vs Yield, EW")
 
-changeP = 1968;
+changeP1 = 1968;
 for i = [1 2 3 7]
     if i ~= 7
         subplot(2,2,i)
@@ -2201,10 +2274,10 @@ for i = [1 2 3 7]
     mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP),avgWYield.YIELD(avgWYield.YEAR<=changeP,i));
+    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP),avgWYield.YIELD(avgWYield.YEAR>changeP,i));
+    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -2278,10 +2351,10 @@ for i = [4 5 6 7]
     mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP),avgWYield.YIELD(avgWYield.YEAR<=changeP,i));
+    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP),avgWYield.YIELD(avgWYield.YEAR>changeP,i));
+    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
