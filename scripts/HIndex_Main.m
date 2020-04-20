@@ -64,7 +64,8 @@ climateZone = {west, EWcentral, east, north, NScentral, south,whole};
 %only does this for the grain yield of wheat by county. I will need to
 %adjust the script later to do this for all files in the grain yield folder
 %if we decide to continue with the comparision to grain yield
-
+y1 = 1908;
+y2 = 2013;
 for i = 5:5 %i = 1:length(names)
     baseFileName2 = names(i); %calls the file for grain yield at name i in the grain yeild folder
     fullFileName2 = fullfile(folder2, baseFileName2); %adjust the file name to be redundant and less likely to cause errors
@@ -76,10 +77,10 @@ for i = 5:5 %i = 1:length(names)
     %temporaryFile2.Value = cell2mat(temporaryFile2.Value);
 
     Yield = table(); %creates a new empety table Yield to store the data for grain yield for the given dacade
-    Yield.YEAR = temporaryFile2.Year(temporaryFile2.Year >= 1911 & temporaryFile2.Year <= 2010); %sets the YEAR variable of the Yield table to be equal to the Year variable from temporaryFile2 for values of 1911 to 2010 
+    Yield.YEAR = temporaryFile2.Year(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2); %sets the YEAR variable of the Yield table to be equal to the Year variable from temporaryFile2 for values of 1911 to 2010 
     %I need to adjust these scripts to have more flexible year selection
-    Yield.REGION = temporaryFile2.AgDistrictCode(temporaryFile2.Year >= 1911 & temporaryFile2.Year <= 2010); %sets the REGION variable of Yield equal to the AgDistrictCode variable from tempoaryFile2 where the Year variable is between 1911 and 2010 
-    Yield.YIELD = round(temporaryFile2.Value(temporaryFile2.Year >= 1911 & temporaryFile2.Year <= 2010),1);%sets the YIELD variable of Yield equal to the Value variable from tempoaryFile2 where the Year variable is between 1911 and 2010
+    Yield.REGION = temporaryFile2.AgDistrictCode(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2); %sets the REGION variable of Yield equal to the AgDistrictCode variable from tempoaryFile2 where the Year variable is between 1911 and 2010 
+    Yield.YIELD = round(temporaryFile2.Value(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2),1);%sets the YIELD variable of Yield equal to the Value variable from tempoaryFile2 where the Year variable is between 1911 and 2010
 
     base = mean(Yield.YIELD); %base is the baseline average determiend as average of all yields in all regions across the entire period of record
     yDecades = decades; %creates a new table yDecades to show the results of the grain yields by decade and region
@@ -103,7 +104,7 @@ for i = 5:5 %i = 1:length(names)
     end
 end
 
-
+%%
 figure('name','Decadal');
 bar(categorical(decadeNames),wYDecades.MEAN); %creates a bar graph showing the difference between the decadal average and the centenial average of 1911-2010
 
@@ -119,7 +120,7 @@ tic %start calculating run time
 stationLength = length(stationNames); %variable for the number stations
 
 %for if you want to calculate the L-index(using Tmin) instead of the H-index (using Tmax)
-useLIndex = 1; 
+useLIndex = 0; 
 
 %predefining the size of H and L index
 HIndex = zeros(2013-1890+1,23);
@@ -324,8 +325,8 @@ for i = 1:length(tableStationNames) %for each station in station names
     %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
     %we reject the hypothesis.
     %analysis for the whole period of record
-    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
-    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [tau,pD1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,pD1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
     [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
     rho_pA(i,1:3)=[i,rho,p2];
     [r,p3]=corr(xA,yA);%pearson (linear) method
@@ -422,19 +423,20 @@ end
 %% 4.0.1 Calculating time series vs. yearly average grain yield
 %This section compares average grain yield to average H-index for every
 %year from y1 to y2 
-y1 = 1926;
-y2 = 2007;
-  
+y1 = 1908;
+y2 = 2013; 
+r = 1+y2-y1;
+
 if useLIndex == 1
     avgLIndex = table(); %creates a new table for calculating the climate region averages of L Index
     avgWYield = table(); 
-    avgWYield.YEAR = zeros(82,1); %Pre-allocating to reduce errors
-    avgWYield.YIELD = zeros(82,7);
+    avgWYield.YEAR = zeros(r,1); %Pre-allocating to reduce errors
+    avgWYield.YIELD = zeros(r,7);
 else
     avgHIndex = table(); %creates a new table for calculating the climate region averages of H Index
     avgWYield = table();
-    avgWYield.YEAR = zeros(82,1);
-    avgWYield.YIELD = zeros(82,7);
+    avgWYield.YEAR = zeros(r,1);
+    avgWYield.YIELD = zeros(r,7);
 end
 
 for i = 1:length(climateZone)
@@ -446,20 +448,22 @@ for i = 1:length(climateZone)
     end
     
      
-    for j = min(tempWYield.YEAR):max(tempWYield.YEAR)
-        avgWYield.YEAR(1-min(tempWYield.YEAR)+j) = j;
-        avgWYield.YIELD(1-min(tempWYield.YEAR)+j,i) = mean(tempWYield.YIELD(tempWYield.YEAR == j));
+    for j = y1:y2 %min(tempWYield.YEAR):max(tempWYield.YEAR)
+        avgWYield.YEAR(1-y1+j) = j;%avgWYield.YEAR(1-min(tempWYield.YEAR)+j) = j;
+        avgWYield.YIELD(1-y1+j,i) = mean(tempWYield.YIELD(tempWYield.YEAR == j));
     end
     
 
 
     if useLIndex == 1       
-        avgLIndex.YEAR = LIndex(:,1);
-        avgLIndex.LIndex(:,i) = mean(LIndex(:,cell2mat(climateZone(i))),2); 
+        avgLIndex.YEAR = LIndex(:,1);       
+        LIndex(LIndex==0) = NaN;
+        avgLIndex.LIndex(:,i) = mean(LIndex(:,cell2mat(climateZone(i))),2,'omitnan'); 
     else
         
         avgHIndex.YEAR = HIndex(:,1);
-        avgHIndex.HIndex(:,i) = mean(HIndex(:,cell2mat(climateZone(i))),2);       
+        HIndex(HIndex==0) = NaN;
+        avgHIndex.HIndex(:,i) = mean(HIndex(:,cell2mat(climateZone(i))),2,'omitnan');       
     end
 end 
 
@@ -468,6 +472,7 @@ if useLIndex == 1
 else
     avgHIndex = avgHIndex(avgHIndex.YEAR >= y1 & avgHIndex.YEAR <= y2,:);
 end
+avgWYield(isnan(avgWYield.YIELD(:,1)),:) = [];
 %% 4.0.2.1 Sorting data and Pettitt test
 %this script will need at least three loops. First we will have an outer
 clc
@@ -487,10 +492,11 @@ for e = 1:2
                 B = renamevars(avgHIndex,"HIndex","Index");
             end
         else
-            B = renamevars(avgWYield,"YIELD","Index");
+            B = renamevars(avgWYield,"YIELD","Index");           
         end
         
-        if j > 1
+        
+        if sum(ismember("IndexRank" ,B.Properties.VariableNames)) ==1 || sum(ismember("U" ,B.Properties.VariableNames)) ==1 
             B = removevars(B, ["U", "IndexRank"]);
         end
         B.Index = B.Index(:,j);
@@ -546,10 +552,10 @@ for e = 1:2
             end
         else
             avgWYield.U(:,j) =B.U;
-             cropCP = CP;
+            cropCP = CP;
         end
-        
         B = table();
+        K = 0;
     end
     B = table();
 end
@@ -558,15 +564,17 @@ end
 locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"];
 figure('Name', "TIndex vs Yield, EW")
 
-%useLIndex = 0;
-
+%useLIndex = 1;
+cropClimateStats = table();
+cropClimateStats.Region = locations';
 for i = [1 2 3 7]
     changeP1 = cropCP.YEAR(i);
-    if useLIndex == 1
-        changeP2 = climateLCP.YEAR(i);
-    else
-        changeP2 = climateHCP.YEAR(i);
-    end
+    changeP2 = changeP1;
+%     if useLIndex == 1
+%         changeP2 = climateLCP.YEAR(i);
+%     else
+%         changeP2 = climateHCP.YEAR(i);
+%     end
     if i ~= 7
         subplot(2,2,i)
     else
@@ -589,7 +597,8 @@ for i = [1 2 3 7]
     zC(1).Color = 'none'; 
     zC(1).Marker = '.';
     zC(1).MarkerSize = 10;
-    zC(2).Color = 'c';
+    zC(2).Color = 'm';
+    zC(2).LineStyle = '--';
     zC(2).LineWidth = 1.15;
     zC(3).Color = 'none';
     zC(4).Color = 'none'; 
@@ -605,7 +614,7 @@ for i = [1 2 3 7]
     zC2(1).Color = 'none'; 
     zC2(1).Marker = '.';
     zC2(1).MarkerSize = 10;
-    zC2(2).Color = 'Y';
+    zC2(2).Color = 'm';
     zC2(2).LineWidth = 1.15;
     zC2(3).Color = 'none';
     zC2(4).Color = 'none'; 
@@ -623,7 +632,7 @@ for i = [1 2 3 7]
         ylim([80 94])
     end
       
-    xlim([1925 2010])
+    xlim([1925 2015])
     hold on
 
     p.LineWidth = 1.15;
@@ -647,7 +656,8 @@ for i = [1 2 3 7]
     zD(1).Color = 'none'; 
     zD(1).Marker = '.';
     zD(1).MarkerSize = 10;
-    zD(2).Color = 'g';
+    zD(2).Color = 'k';
+    zD(2).LineStyle = '--';
     zD(2).LineWidth = 1.15;
     zD(3).Color = 'none';
     zD(4).Color = 'none'; 
@@ -655,7 +665,7 @@ for i = [1 2 3 7]
     zD1(1).Color = 'none'; 
     zD1(1).Marker = '.';
     zD1(1).MarkerSize = 10;
-    zD1(2).Color = 'b';
+    zD1(2).Color = 'k';
     zD1(2).LineWidth = 1.15;
     zD1(3).Color = 'none';
     zD1(4).Color = 'none';
@@ -683,11 +693,12 @@ end
 figure('Name', "TIndex vs Yield, NS")
 for i = [4 5 6 7]  
     changeP1 = CP.YEAR(i);
-    if useLIndex == 1
-        changeP2 = climateLCP.YEAR(i);
-    else
-        changeP2 = climateHCP.YEAR(i);
-    end
+    changeP2 = changeP1;
+%     if useLIndex == 1
+%         changeP2 = climateLCP.YEAR(i);
+%     else
+%         changeP2 = climateHCP.YEAR(i);
+%     end
     subplot(2,2,i-3)    
     
     yyaxis left
@@ -707,7 +718,8 @@ for i = [4 5 6 7]
     zC(1).Color = 'none'; 
     zC(1).Marker = '.';
     zC(1).MarkerSize = 10;
-    zC(2).Color = 'c';
+    zC(2).Color = 'm';
+    zC(2).LineStyle = '--';
     zC(2).LineWidth = 1.15;
     zC(3).Color = 'none';
     zC(4).Color = 'none'; 
@@ -723,7 +735,7 @@ for i = [4 5 6 7]
     zC2(1).Color = 'none'; 
     zC2(1).Marker = '.';
     zC2(1).MarkerSize = 10;
-    zC2(2).Color = 'Y';
+    zC2(2).Color = 'm';
     zC2(2).LineWidth = 1.15;
     zC2(3).Color = 'none';
     zC2(4).Color = 'none'; 
@@ -738,7 +750,7 @@ for i = [4 5 6 7]
          ylim([80 94])
      end
     
-    xlim([1925 2010])
+    xlim([1925 2015])
     hold on
     
     p.LineWidth = 1.15;
@@ -762,7 +774,8 @@ for i = [4 5 6 7]
     zD(1).Color = 'none'; 
     zD(1).Marker = '.';
     zD(1).MarkerSize = 10;
-    zD(2).Color = 'g';
+    zD(2).Color = 'k';
+    zD(2).LineStyle = "--";
     zD(2).LineWidth = 1.15;
     zD(3).Color = 'none';
     zD(4).Color = 'none'; 
@@ -770,7 +783,7 @@ for i = [4 5 6 7]
     zD1(1).Color = 'none'; 
     zD1(1).Marker = '.';
     zD1(1).MarkerSize = 10;
-    zD1(2).Color = 'b';
+    zD1(2).Color = 'k';
     zD1(2).LineWidth = 1.15;
     zD1(3).Color = 'none';
     zD1(4).Color = 'none';
@@ -944,10 +957,10 @@ timeCIndex = toc
 CResults = table;
 CResults.NAME = tableStationNames';
 %for now, I'm only controlling the year from the H-Index section
-% startYear = 1981;
-% stopYear = 2013;
-% useStartYear = 0;
-% useStopYear = 0;
+ startYear = 1981;
+ stopYear = 2013;
+ useStartYear = 0;
+ useStopYear = 0;
 figure('Name', 'C-Index')
 %periods = 
 for i = 1:length(tableStationNames) %for each station in station names 
@@ -1081,8 +1094,8 @@ for i = 1:length(tableStationNames) %for each station in station names
         CResults.climateDivision(i) = 9;         
     end
     
-    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
-    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [tau,pD1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,pD1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
     [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
     rho_pA(i,1:3)=[i,rho,p2];
     [r,p3]=corr(xA,yA);%pearson (linear) method
@@ -1146,12 +1159,141 @@ end
 
 avgCIndex = avgCIndex(avgCIndex.YEAR >= y1 & avgCIndex.YEAR <= y2,:);
 
+% 7.0.2.1 Sorting data and Pettitt test C-Index
+%this script will need at least three loops. First we will have an outer
+clc
+%sorting loop
+CP = table();
+%fileName='annual_pettitt_sort_sample.xlsx';
+%avgLIndex = readtable(fileName);
+
+cropClimateStats = table();
+cropClimateStats.Region = locations';
+cropClimateStats.cRPValue = zeros(7,3);
+cropClimateStats.cSlope = zeros(7,3);
+cropClimateStats.cCCPTauPValue = zeros(7,3);
+cropClimateStats.cropRPValue = zeros(7,3);
+cropClimateStats.cropSlope = zeros(7,3);
+cropClimateStats.cropTauPValue = zeros(7,3);
+cropClimateStats.cCropCPTauPValue = zeros(7,3);
+
+
+for e = 1:2
+    for j= 1:length(climateZone)
+        %creates a temporary variable to more easily sort by index value.
+        CP.Region = ["west", "EWcentral", "east", "north", "NScentral", "south", "whole"]';
+        if e == 1          
+            B = renamevars(avgCIndex,"CIndex","Index");            
+        else
+            B = renamevars(avgWYield,"YIELD","Index");
+        end
+        
+        if j > 1
+            B = removevars(B, ["U", "IndexRank"]);
+        end
+        B.Index = B.Index(:,j);
+        %create a rank column based on year in ascending order
+        for i = 1:height(B)
+           B.YearRank(i) = i; 
+        end
+        %sort temp table B by ascending index magnitude
+        B = sortrows(B,2);
+        %store the altered order of the Year Rank in avg""Index
+        
+        if e == 1         
+            avgCIndex.IndexRank(:,j) = B.YearRank;
+        else
+            avgWYield.IndexRank(:,j) = B.YearRank;
+        end
+
+
+        %Pettitt loop
+        for k = 1:height(B) %for the number of rows in avgLIndex
+            B.U(k)=2*sum(B.YearRank(1:k))-k*(height(B)+1); %calculates the rank statistic
+            %storing rank statistic                      
+            if abs(B.U(k))==max(abs(B.U)) %determines the postion of the max rank statistic
+                c=k;
+            end
+        end
+        
+        %determines the year the change point occured at
+        CP.YEAR(j) = c+min(B.YEAR)-1;
+        K=max(abs(B.U)); %calculates the statistical change point test statistic
+        K_c=(-log(0.05)*((height(B)^3)+(height(B)^2))/6)^.5; %calculating the critical value at the give station
+        CP.ChangePoint(j) = K;
+        if K>K_c
+            CP.CL(j)=1;
+            CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2));
+        else
+
+            CP.CL(j) = 0;
+            CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2));
+        end     
+        
+        if e ==1
+            
+            avgCIndex.U(:,j) = B.U;
+            climateCCP = CP;
+            %calculating statistical significance of slopes based on 
+            [tau,pD]=corr(B.YEAR,B.Index,'type','kendall'); %kendall method
+            tau_pD(j,1:3)=[j,tau,pD];
+            [tau,pD1]=corr(B.YEAR(B.YEAR<=climateCCP.YEAR(j)),B.Index(B.YEAR<=climateCCP.YEAR(j)),'type','kendall'); %kendall method
+            tau_pD1(j,1:3)=[j,tau,pD1];
+            [tau,pD2]=corr(B.YEAR(B.YEAR>climateCCP.YEAR(j)),B.Index(B.YEAR>climateCCP.YEAR(j)),'type','kendall'); %kendall method
+            tau_pD2(j,1:3)=[j,tau,pD2];
+            
+            cropClimateStats.cRPValue(j) = 1;
+            
+            cropClimateStats.cSlope(j) = 1;
+            
+            cropClimateStats.cCCPTauPValue(j,1) = pD;
+            cropClimateStats.cCCPTauPValue(j,2) = pD1;
+            cropClimateStats.cCCPTauPValue(j,3) = pD2;
+            
+            
+          
+        else
+            avgWYield.U(:,j) =B.U;
+            cropCP = CP;
+            
+            [tau,pC]=corr(B.YEAR,B.Index,'type','kendall'); %kendall method
+            tau_pC(j,1:3)=[j,tau,pC];
+            [tau,pC1]=corr(B.YEAR(B.YEAR<=cropCP.YEAR(j)),B.Index(B.YEAR<=cropCP.YEAR(j)),'type','kendall'); %kendall method
+            tau_pC1(j,1:3)=[j,tau,pC1];
+            [tau,pC2]=corr(B.YEAR(B.YEAR>cropCP.YEAR(j)),B.Index(B.YEAR>cropCP.YEAR(j)),'type','kendall'); %kendall method
+            tau_pC2(j,1:3)=[j,tau,pC2];
+            
+            [tau,pD]=corr(B.YEAR,B.Index,'type','kendall'); %kendall method
+            tau_pD(j,1:3)=[j,tau,pD];
+            [tau,pD1]=corr(B.YEAR(B.YEAR<=cropCP.YEAR(j)),avgCIndex.CIndex(avgCIndex.YEAR<=cropCP.YEAR(j),j),'type','kendall'); %kendall method
+            tau_pD1(j,1:3)=[j,tau,pD1];
+            [tau,pD2]=corr(B.YEAR(B.YEAR>cropCP.YEAR(j)),avgCIndex.CIndex(avgCIndex.YEAR>cropCP.YEAR(j),j),'type','kendall'); %kendall method
+            tau_pD2(j,1:3)=[j,tau,pD2];
+            
+            cropClimateStats.cropTauPValue(j,1) = pC;
+            cropClimateStats.cropTauPValue(j,2) = pC1;
+            cropClimateStats.cropTauPValue(j,3) = pC2;
+            
+            cropClimateStats.cCropCPTauPValue(j,1) = pD;
+            cropClimateStats.cCropCPTauPValue(j,2) = pD1;
+            cropClimateStats.cCropCPTauPValue(j,3) = pD2;
+        end
+        
+        B = table();
+        
+    end
+    B = table();
+end
 %% 7.0.2 Graphing time series vs. Yearly Average Grain Yield
 locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"];
 figure('Name', "CIndex vs Yield, EW")
 
-changeP1 = 1968;
+
 for i = [1 2 3 7]
+    changeP1 = cropCP.YEAR(i);
+    changeP2 = climateCCP.YEAR(i);
+    %changeP2 = changeP1;
+    
     if i ~= 7
         subplot(2,2,i)
     else
@@ -1174,7 +1316,8 @@ for i = [1 2 3 7]
     zC(1).Color = 'none'; 
     zC(1).Marker = '.';
     zC(1).MarkerSize = 10;
-    zC(2).Color = 'c';
+    zC(2).Color = 'm';
+    zC(2).LineStyle = '--';
     zC(2).LineWidth = 1.15;
     zC(3).Color = 'none';
     zC(4).Color = 'none'; 
@@ -1190,7 +1333,7 @@ for i = [1 2 3 7]
     zC2(1).Color = 'none'; 
     zC2(1).Marker = '.';
     zC2(1).MarkerSize = 10;
-    zC2(2).Color = 'Y';
+    zC2(2).Color = 'm';
     zC2(2).LineWidth = 1.15;
     zC2(3).Color = 'none';
     zC2(4).Color = 'none'; 
@@ -1210,15 +1353,37 @@ for i = [1 2 3 7]
     p.Color = 'r';
  
     mdlD = fitlm(avgCIndex.YEAR,avgCIndex.CIndex(:,i));   
-    zD = plot(mdlD); 
+    zD = plot(mdlD);
+    mdlD1 = fitlm(avgCIndex.YEAR(avgCIndex.YEAR<=changeP2),avgCIndex.CIndex(avgCIndex.YEAR<=changeP2,i));   
+    zD1 = plot(mdlD1);
+    mdlD2 = fitlm(avgCIndex.YEAR(avgCIndex.YEAR>changeP2),avgCIndex.CIndex(avgCIndex.YEAR>changeP2,i));   
+    zD2 = plot(mdlD2); 
 
     zD(1).Color = 'none'; 
     zD(1).Marker = '.';
     zD(1).MarkerSize = 10;
-    zD(2).Color = 'g';
+    zD(2).Color = 'k';
+    zD(2).LineStyle = '--';
     zD(2).LineWidth = 1.15;
     zD(3).Color = 'none';
     zD(4).Color = 'none'; 
+    
+    zD1(1).Color = 'none'; 
+    zD1(1).Marker = '.';
+    zD1(1).MarkerSize = 10;
+    zD1(2).Color = 'k';
+    zD1(2).LineWidth = 1.15;
+    zD1(3).Color = 'none';
+    zD1(4).Color = 'none';
+    
+    zD2(1).Color = 'none'; 
+    zD2(1).Marker = '.';
+    zD2(1).MarkerSize = 10;
+    zD2(2).Color = 'k';
+    zD2(2).LineWidth = 1.15;
+    zD2(3).Color = 'none';
+    zD2(4).Color = 'none';
+ 
 
 
     ylabel("Average C - Index (days/year)")
@@ -1226,11 +1391,15 @@ for i = [1 2 3 7]
      
     legend off
     xlabel('Year')
+    
 end
 
 
 figure('Name', "CIndex vs Yield, NS")
 for i = [4 5 6 7]  
+    changeP1 = cropCP.YEAR(i);
+    changeP2 = climateCCP.YEAR(i);
+    %changeP2 = changeP1;
     
     subplot(2,2,i-3)    
     
@@ -1251,7 +1420,8 @@ for i = [4 5 6 7]
     zC(1).Color = 'none'; 
     zC(1).Marker = '.';
     zC(1).MarkerSize = 10;
-    zC(2).Color = 'c';
+    zC(2).Color = 'm';
+    zC(2).LineStyle = '--';
     zC(2).LineWidth = 1.15;
     zC(3).Color = 'none';
     zC(4).Color = 'none'; 
@@ -1267,7 +1437,7 @@ for i = [4 5 6 7]
     zC2(1).Color = 'none'; 
     zC2(1).Marker = '.';
     zC2(1).MarkerSize = 10;
-    zC2(2).Color = 'Y';
+    zC2(2).Color = 'm';
     zC2(2).LineWidth = 1.15;
     zC2(3).Color = 'none';
     zC2(4).Color = 'none'; 
@@ -1285,17 +1455,37 @@ for i = [4 5 6 7]
     p.Color = 'r';
    
     mdlD = fitlm(avgCIndex.YEAR,avgCIndex.CIndex(:,i));   
-    zD = plot(mdlD); 
-   
+    zD = plot(mdlD);
+    mdlD1 = fitlm(avgCIndex.YEAR(avgCIndex.YEAR<=changeP2),avgCIndex.CIndex(avgCIndex.YEAR<=changeP2,i));   
+    zD1 = plot(mdlD1);
+    mdlD2 = fitlm(avgCIndex.YEAR(avgCIndex.YEAR>changeP2),avgCIndex.CIndex(avgCIndex.YEAR>changeP2,i));   
+    zD2 = plot(mdlD2); 
 
     zD(1).Color = 'none'; 
     zD(1).Marker = '.';
     zD(1).MarkerSize = 10;
-    zD(2).Color = 'g';
+    zD(2).Color = 'k';
+    zD(2).LineStyle = '--';
     zD(2).LineWidth = 1.15;
     zD(3).Color = 'none';
     zD(4).Color = 'none'; 
-   
+    
+    zD1(1).Color = 'none'; 
+    zD1(1).Marker = '.';
+    zD1(1).MarkerSize = 10;
+    zD1(2).Color = 'k';
+    zD1(2).LineWidth = 1.15;
+    zD1(3).Color = 'none';
+    zD1(4).Color = 'none';
+    
+    zD2(1).Color = 'none'; 
+    zD2(1).Marker = '.';
+    zD2(1).MarkerSize = 10;
+    zD2(2).Color = 'k';
+    zD2(2).LineWidth = 1.15;
+    zD2(3).Color = 'none';
+    zD2(4).Color = 'none'; 
+       
     ylabel("Average C - Index (days/year)")
     title(compose(locations(i) +" average C-Index and average wheat yield vs. year"))
  
@@ -1550,15 +1740,15 @@ for i = 1:length(tableStationNames) %for each station in station names
     %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
     %we reject the hypothesis.
     %analysis for the whole period of record
-    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
-    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [tau,pD1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,pD1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
     [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
     rho_pA(i,1:3)=[i,rho,p2];
     [r,p3]=corr(xA,yA);%pearson (linear) method
     r_pA(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y);
     
-    [tau,p1]=corr(xA2,yA2,'type','kendall'); %kendall method
-    tau_pA2(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [tau,pD1]=corr(xA2,yA2,'type','kendall'); %kendall method
+    tau_pA2(i,1:3)=[i,tau,pD1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
     [rho,p2]=corr(xA2,yA2,'type','spearman');%spearman method
     rho_pA2(i,1:3)=[i,rho,p2];
     [r,p3]=corr(xA2,yA2);%pearson (linear) method
@@ -2131,8 +2321,8 @@ for i = 1:length(tableStationNames) %for each station in station names
     %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
     %we reject the hypothesis.
     %analysis for the whole period of record
-    [tau,p1]=corr(xA,yA,'type','kendall'); %kendall method
-    tau_pA(i,1:3)=[i,tau,p1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+    [tau,pD1]=corr(xA,yA,'type','kendall'); %kendall method
+    tau_pA(i,1:3)=[i,tau,pD1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
     [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
     rho_pA(i,1:3)=[i,rho,p2];
     [r,p3]=corr(xA,yA);%pearson (linear) method
