@@ -65,9 +65,20 @@ climateZone = {west, EWcentral, east, north, NScentral, south,whole};
 %if we decide to continue with the comparision to grain yield
 y1 = 1908;
 y2 = 2013;
-yieldNames = {"totWheat","irrWheat","noIrrWheat","totCorn","irrCorn","noIrrCorn","totCorn","irrCorn","noIrrCorn";
-Yield = table('TableNames',yieldNames);
-for i = 5:5 %i = 1:length(names)
+%tempNames = {'totWheat','irrWheat','noIrrWheat','totCorn','irrCorn','noIrrCorn','totSoy','irrSoy','noIrrSoy', 'totSorgh','irrSorgh','noIrrSorgh'};
+Yield = struct('totWheat',[],'irrWheat',[],'noIrrWheat',[],'totCorn',[],'irrCorn',[],'noIrrCorn',[],'totSoy',[],'irrSoy',[],'noIrrSoy',[], 'totSorgh',[],'irrSorgh',[],'noIrrSorgh',[]);%{'totWheat','irrWheat','noIrrWheat','totCorn','irrCorn','noIrrCorn','totSoy','irrSoy','noIrrSoy', 'totSorgh','irrSorgh','noIrrSorgh'});
+Yield;
+
+T = fieldnames(Yield); %creates a cell array containing the field names in the Yield structure array
+char(T(1,1))
+S = struct('type','.','subs','REGION');
+Yield = subsasgn(Yield,S,table2cell(tYield));
+subsref(tYield,S)
+%tYield = subsasgn(tYield,S,zeros(3750,1));
+a= cell2mat(Yield.totWheat); 
+% Yield.totWheat = tYield;
+% Yield.totWheat.YEAR(1)
+for i = 1:length(names)
     baseFileName2 = names(i); %calls the file for grain yield at name i in the grain yeild folder
     fullFileName2 = fullfile(folder2, baseFileName2); %adjust the file name to be redundant and less likely to cause errors
     temporaryFile2 = readtable(fullFileName2); %creates a table for the file with the name given from the above variables
@@ -77,27 +88,34 @@ for i = 5:5 %i = 1:length(names)
     %I need to adjust these scripts to have more flexible year selection
     tYield.REGION = temporaryFile2.AgDistrictCode(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2); %sets the REGION variable of Yield equal to the AgDistrictCode variable from tempoaryFile2 where the Year variable is between 1911 and 2010 
     tYield.YIELD = round(temporaryFile2.Value(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2),1);%sets the YIELD variable of Yield equal to the Value variable from tempoaryFile2 where the Year variable is between 1911 and 2010
-
+    %Note, for this section to work, you do need to order the files in the
+    %folder to be in the same order as the field names in the Yield
+    %structure. This shouldn't be a major issue if you manage the files
+    %correctly and means that most of the editing is just adding a number
+    %prefix to files to achieve the proper order.
+    S = struct('type','.','subs',char(T(i,1))); %creats a indexing structure array with for a dot type and a field designated by the field names of the Yield array at position i of the loop
+    Yield = subsasgn(Yield,S,table2cell(tYield)); %converts the tYield table to a cell array and then assigns that cell array to the field described by S above
+    %note, for each field of the structure, column 1 is 
+    
     base = mean(tYield.YIELD); %base is the baseline average determiend as average of all yields in all regions across the entire period of record
     yDecades = decades; %creates a new table yDecades to show the results of the grain yields by decade and region
-    
     %this loop calculates the average grain yield by decade
     for j = 1:height(yDecades) %for each decade
         for h = 1:7 %for each climate region (W, EW central, E, N, NS central, S, Entire state)
                 z = cell2mat(agClimateZone(h)); %creates a double array, z, from the cell at position h in agClimateZone
-                tempYield = tYield; %createes a temporay table that is adjusted with each iteration of the loop this allows the Yield variable to be used in later scripts to calculate yearly values
+                tempAvgYield = tYield; %createes a temporay table that is adjusted with each iteration of the loop this allows the Yield variable to be used in later scripts to calculate yearly values
                 if h ~= 7 %if h is any region but the entire state
-                    tempYield = tempYield(tempYield.REGION == z(1) | tempYield.REGION == z(2) | tempYield.REGION == z(3),:); %limits temp yield to rows where the rows are equal to z at postions 1, 2, and 3 (I think I could do this with a third loop, but its not worth my time right now)
+                    tempAvgYield = tempAvgYield(tempAvgYield.REGION == z(1) | tempAvgYield.REGION == z(2) | tempAvgYield.REGION == z(3),:); %limits temp yield to rows where the rows are equal to z at postions 1, 2, and 3 (I think I could do this with a third loop, but its not worth my time right now)
                 end
-            yDecades.MEAN(j,h) = mean(tempYield.YIELD(tempYield.YEAR <= max(yDecades.Var1(j,:)) & tempYield.YEAR >= min(yDecades.Var1(j,:))));  %calculates the average grain yield of the decade for each region          
+            yDecades.MEAN(j,h) = mean(tempAvgYield.YIELD(tempAvgYield.YEAR <= max(yDecades.Var1(j,:)) & tempAvgYield.YEAR >= min(yDecades.Var1(j,:))));  %calculates the average grain yield of the decade for each region          
             yDecades.DIFF(j,h) = yDecades.MEAN(j,h)-base; %calculates the difference between the decadal average and the base average       
             decadeNames (j) = compose(num2str(min(yDecades.Var1(j,:))-1)+"s");   %creates an array for the period for graphing (i.e. 1920s, 1930s, etc)         
         end
     end
-    if i == 5
-        Yield.Wheat = tYield; %creates a new table showing wheat yields, wYield, as Yield is a temporary variable. This script may need to be adjusted later to make the script more flexible.
-        wYDecades = yDecades; % the same as line 90, but for decadal averages
-    end
+%     if i == 5
+%         %Yield.Wheat = tYield; %creates a new table showing wheat yields, wYield, as Yield is a temporary variable. This script may need to be adjusted later to make the script more flexible.
+%         wYDecades = yDecades; % the same as line 90, but for decadal averages
+%     end
 end
 
 %%
@@ -331,7 +349,7 @@ for i = 1:length(tableStationNames) %for each station in station names
     %Allocates a number to each station based on there Climate Division in
     %the state of Kansas
     
-    if HResults.NAME(i,1) == "Saint Francis"
+    if HResults.NAME(i,1) == "Saint Francis" 
         HResults.climateDivision(i) = 1;
     elseif HResults.NAME(i,1) ==  "Oberlin"  
         HResults.climateDivision(i) = 1;
@@ -419,38 +437,20 @@ end
 %% 4.0.1 Calculating time series vs. yearly average grain yield
 %This section compares average grain yield to average H-index for every
 %year from y1 to y2 
-y1 = 1908;
-y2 = 2013; 
-r = 1+y2-y1;
+y1 = 1908; %smallest year for climate data
+y2 = 2013; %largest year for climate data
+r = 1+y2-y1; %the size of the range between y1 and y2 for creating row indices later
 
 if useLIndex == 1
-    avgLIndex = table(); %creates a new table for calculating the climate region averages of L Index
-    avgWYield = table(); 
-    avgWYield.YEAR = zeros(r,1); %Pre-allocating to reduce errors
-    avgWYield.YIELD = zeros(r,7);
+    avgLIndex = table(); %creates a new table for calculating the climate region averages of L Index   
 else
     avgHIndex = table(); %creates a new table for calculating the climate region averages of H Index
-    avgWYield = table();
-    avgWYield.YEAR = zeros(r,1);
-    avgWYield.YIELD = zeros(r,7);
 end
 
+
+%This loop calculates the regional averages for the climate index based on
+%the climate zones for Kansas.
 for i = 1:length(climateZone)
-
-    z = cell2mat(agClimateZone(i));
-    tempWYield = wYield;
-    if i ~= 7
-        tempWYield = tempWYield(tempWYield.REGION == z(1) | tempWYield.REGION == z(2) | tempWYield.REGION == z(3),:); %
-    end
-    
-     
-    for j = y1:y2 %min(tempWYield.YEAR):max(tempWYield.YEAR)
-        avgWYield.YEAR(1-y1+j) = j;%avgWYield.YEAR(1-min(tempWYield.YEAR)+j) = j;
-        avgWYield.YIELD(1-y1+j,i) = mean(tempWYield.YIELD(tempWYield.YEAR == j));
-    end
-    
-
-
     if useLIndex == 1       
         avgLIndex.YEAR = LIndex(:,1);       
         LIndex(LIndex==0) = NaN;
@@ -468,7 +468,51 @@ if useLIndex == 1
 else
     avgHIndex = avgHIndex(avgHIndex.YEAR >= y1 & avgHIndex.YEAR <= y2,:);
 end
-avgWYield(isnan(avgWYield.YIELD(:,1)),:) = [];
+%This loop creates a structure array that contains the regional averages
+%for each crop 
+avgYield = struct('totWheat',[],'irrWheat',[],'noIrrWheat',[],'totCorn',[],'irrCorn',[],'noIrrCorn',[],'totSoy',[],'irrSoy',[],'noIrrSoy',[], 'totSorgh',[],'irrSorgh',[],'noIrrSorgh',[]); 
+% avgWYield.YEAR = zeros(r,1); %Pre-allocating to reduce errors
+% avgWYield.YIELD = zeros(r,7);
+for h = 1:length(names)
+    T = fieldnames(avgYield); %creates a cell array containing the names of all the crop s in the avgYield structure array
+    S = struct('type','.','subs',T(h,1)); %creates the indexing structure array for each crop in T for the h itteration of the loop
+    B = table(zeros(r,1),zeros(r,7),'VariableNames',{'YEAR','YIELD'}); %creates a temporary table used to alter the table's format before being stowed in avgYield
+    for i = 1:length(climateZone) %for each climate zone
+
+        z = cell2mat(agClimateZone(i)); %creates a vector, z, containing all of the regions numbers that are in the climate zone i
+       
+        %step below creates a temporary table, tempYield, based on data from the crop
+        %identified in S. The table has three columns, labeled YEAR,
+        %REGION, and YIELD. It was easier for me to work with table than
+        %cells for the next steps.
+        tempAvgYield = cell2table(subsref(Yield,S),'VariableNames',{'YEAR','REGION','YIELD'});        
+        
+        %the below if statement alster the table to only contain data from 
+        %the region i. In this loop i == 7 is the statewhide average, so we
+        %don't alter tempYield.
+        
+        if i ~= 7
+            %climate zone in kansas are, in ever case, defined by 3 climate
+            %region markers. therfore, as long as i is not 7, z will be a
+            %1x3 matrix of the regional identifiers fro different climate
+            %zones.
+            tempAvgYield = tempAvgYield(tempAvgYield.REGION == z(1) | tempAvgYield.REGION == z(2) | tempAvgYield.REGION == z(3),:); %
+        end
+        
+        for j = y1:y2 %for the maximum range of years at any station defined by y1 as minimum year and y2 as maximum year
+            
+             B.YEAR(1-y1+j) = j; %creates a year column for temp table B where the year is the range of years for climate data
+             B.YIELD(1-y1+j,i) = mean(tempAvgYield.YIELD(tempAvgYield.YEAR == j)); %where the years of j an tempAvgYield are equal, set the cell at that position equal to the average yeild of all crops during that year.         
+        end
+        
+        %B(isnan(B.YIELD(:,1)),:) = []; %removes all rows where there are
+        %NaN values in the YIELD field in any column
+    end
+    avgYield = subsasgn(avgYield,S,table2cell(B));
+    
+end
+
+%avgYield(isnan(avgYield.YIELD(:,1)),:) = [];
 %% 4.0.2.1 Sorting data and Pettitt test
 %this script will need at least three loops. First we will have an outer
 clc
@@ -488,7 +532,7 @@ for e = 1:2
                 B = renamevars(avgHIndex,"HIndex","Index");
             end
         else
-            B = renamevars(avgWYield,"YIELD","Index");           
+            B = renamevars(avgYield,"YIELD","Index");           
         end
         
         
@@ -511,7 +555,7 @@ for e = 1:2
                 avgHIndex.IndexRank(:,j) = B.YearRank;
             end
         else
-            avgWYield.IndexRank(:,j) = B.YearRank;
+            avgYield.IndexRank(:,j) = B.YearRank;
         end
 
 
@@ -547,7 +591,7 @@ for e = 1:2
                 climateHCP = CP;
             end
         else
-            avgWYield.U(:,j) =B.U;
+            avgYield.U(:,j) =B.U;
             cropCP = CP;
         end
         B = table();
@@ -578,16 +622,16 @@ for i = [1 2 3 7]
     end
 
     yyaxis left
-    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
     hold on
 
-    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
+    mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
+    mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -698,17 +742,17 @@ for i = [4 5 6 7]
     subplot(2,2,i-3)    
     
     yyaxis left
-    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
     hold on
     ylim([0 60])
   
-    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
+    mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
+    mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -1130,21 +1174,21 @@ y2 = 2007;
   
 
 avgCIndex = table();
-avgWYield = table();
-avgWYield.YEAR = zeros(82,1);
-avgWYield.YIELD = zeros(82,7);
+avgYield = table();
+avgYield.YEAR = zeros(82,1);
+avgYield.YIELD = zeros(82,7);
 
 for i = 1:length(climateZone)
 
     z = cell2mat(agClimateZone(i));
-    tempWYield = wYield;
+    tempAvgYield = wYield;
     if i ~= 7
-        tempWYield = tempWYield(tempWYield.REGION == z(1) | tempWYield.REGION == z(2) | tempWYield.REGION == z(3),:);
+        tempAvgYield = tempAvgYield(tempAvgYield.REGION == z(1) | tempAvgYield.REGION == z(2) | tempAvgYield.REGION == z(3),:);
     end    
      
-    for j = min(tempWYield.YEAR):max(tempWYield.YEAR)
-        avgWYield.YEAR(1-min(tempWYield.YEAR)+j) = j;
-        avgWYield.YIELD(1-min(tempWYield.YEAR)+j,i) = mean(tempWYield.YIELD(tempWYield.YEAR == j));
+    for j = min(tempAvgYield.YEAR):max(tempAvgYield.YEAR)
+        avgYield.YEAR(1-min(tempAvgYield.YEAR)+j) = j;
+        avgYield.YIELD(1-min(tempAvgYield.YEAR)+j,i) = mean(tempAvgYield.YIELD(tempAvgYield.YEAR == j));
     end    
 
 
@@ -1181,7 +1225,7 @@ for e = 1:2
         if e == 1          
             B = renamevars(avgCIndex,"CIndex","Index");            
         else
-            B = renamevars(avgWYield,"YIELD","Index");
+            B = renamevars(avgYield,"YIELD","Index");
         end
         
         if j > 1
@@ -1199,7 +1243,7 @@ for e = 1:2
         if e == 1         
             avgCIndex.IndexRank(:,j) = B.YearRank;
         else
-            avgWYield.IndexRank(:,j) = B.YearRank;
+            avgYield.IndexRank(:,j) = B.YearRank;
         end
 
 
@@ -1249,7 +1293,7 @@ for e = 1:2
             
           
         else
-            avgWYield.U(:,j) =B.U;
+            avgYield.U(:,j) =B.U;
             cropCP = CP;
             
             [tau,pC]=corr(B.YEAR,B.Index,'type','kendall'); %kendall method
@@ -1297,16 +1341,16 @@ for i = [1 2 3 7]
     end
 
     yyaxis left
-    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
     hold on
 
-    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
+    mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
+    mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -1400,17 +1444,17 @@ for i = [4 5 6 7]
     subplot(2,2,i-3)    
     
     yyaxis left
-    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
     hold on
     ylim([0 60])
   
-    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
+    mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
+    mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -1862,21 +1906,21 @@ y2 = 2007;
   
 
 avgWIndex = table();
-avgWYield = table();
-avgWYield.YEAR = zeros(82,1);
-avgWYield.YIELD = zeros(82,7);
+avgYield = table();
+avgYield.YEAR = zeros(82,1);
+avgYield.YIELD = zeros(82,7);
 
 for i = 1:length(climateZone)
 
     z = cell2mat(agClimateZone(i));
-    tempWYield = wYield;
+    tempAvgYield = wYield;
     if i ~= 7
-        tempWYield = tempWYield(tempWYield.REGION == z(1) | tempWYield.REGION == z(2) | tempWYield.REGION == z(3),:);
+        tempAvgYield = tempAvgYield(tempAvgYield.REGION == z(1) | tempAvgYield.REGION == z(2) | tempAvgYield.REGION == z(3),:);
     end    
      
-    for j = min(tempWYield.YEAR):max(tempWYield.YEAR)
-        avgWYield.YEAR(1-min(tempWYield.YEAR)+j) = j;
-        avgWYield.YIELD(1-min(tempWYield.YEAR)+j,i) = mean(tempWYield.YIELD(tempWYield.YEAR == j));
+    for j = min(tempAvgYield.YEAR):max(tempAvgYield.YEAR)
+        avgYield.YEAR(1-min(tempAvgYield.YEAR)+j) = j;
+        avgYield.YIELD(1-min(tempAvgYield.YEAR)+j,i) = mean(tempAvgYield.YIELD(tempAvgYield.YEAR == j));
     end    
 
 
@@ -1900,16 +1944,16 @@ for i = [1 2 3 7]
     end
 
     yyaxis left
-    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
     hold on
 
-    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
+    mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
+    mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -1975,17 +2019,17 @@ for i = [4 5 6 7]
     subplot(2,2,i-3)    
     
     yyaxis left
-    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
     hold on
     ylim([0 60])
   
-    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
+    mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
+    mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -2416,21 +2460,21 @@ y2 = 2007;
   
 
 avgDIndex = table();
-avgWYield = table();
-avgWYield.YEAR = zeros(82,1);
-avgWYield.YIELD = zeros(82,7);
+avgYield = table();
+avgYield.YEAR = zeros(82,1);
+avgYield.YIELD = zeros(82,7);
 
 for i = 1:length(climateZone)
 
     z = cell2mat(agClimateZone(i));
-    tempWYield = wYield;
+    tempAvgYield = wYield;
     if i ~= 7
-        tempWYield = tempWYield(tempWYield.REGION == z(1) | tempWYield.REGION == z(2) | tempWYield.REGION == z(3),:);
+        tempAvgYield = tempAvgYield(tempAvgYield.REGION == z(1) | tempAvgYield.REGION == z(2) | tempAvgYield.REGION == z(3),:);
     end    
      
-    for j = min(tempWYield.YEAR):max(tempWYield.YEAR)
-        avgWYield.YEAR(1-min(tempWYield.YEAR)+j) = j;
-        avgWYield.YIELD(1-min(tempWYield.YEAR)+j,i) = mean(tempWYield.YIELD(tempWYield.YEAR == j));
+    for j = min(tempAvgYield.YEAR):max(tempAvgYield.YEAR)
+        avgYield.YEAR(1-min(tempAvgYield.YEAR)+j) = j;
+        avgYield.YIELD(1-min(tempAvgYield.YEAR)+j,i) = mean(tempAvgYield.YIELD(tempAvgYield.YEAR == j));
     end    
 
 
@@ -2454,16 +2498,16 @@ for i = [1 2 3 7]
     end
 
     yyaxis left
-    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
     hold on
 
-    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
+    mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
+    mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
@@ -2530,17 +2574,17 @@ for i = [4 5 6 7]
     subplot(2,2,i-3)    
     
     yyaxis left
-    b = bar(avgWYield.YEAR,avgWYield.YIELD(:,i),1);
+    b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
     hold on
     ylim([0 60])
   
-    mdlC = fitlm(avgWYield.YEAR,avgWYield.YIELD(:,i));
+    mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
     zC = plot(mdlC);
     
-    mdlC1 = fitlm(avgWYield.YEAR(avgWYield.YEAR<=changeP1),avgWYield.YIELD(avgWYield.YEAR<=changeP1,i));
+    mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
     zC1 = plot(mdlC1);
     
-    mdlC2 = fitlm(avgWYield.YEAR(avgWYield.YEAR>changeP1),avgWYield.YIELD(avgWYield.YEAR>changeP1,i));
+    mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
     zC2 = plot(mdlC2);
 
     zC(1).Color = 'none'; 
