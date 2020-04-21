@@ -8,7 +8,6 @@
 clear 
 clc
 
-
 %% 1 Universal Constants
 %Weather data
 folderName = 'Weather_CSV'; %variable for easy change of folder name
@@ -66,30 +65,27 @@ climateZone = {west, EWcentral, east, north, NScentral, south,whole};
 %if we decide to continue with the comparision to grain yield
 y1 = 1908;
 y2 = 2013;
+yieldNames = {"totWheat","irrWheat","noIrrWheat","totCorn","irrCorn","noIrrCorn","totCorn","irrCorn","noIrrCorn";
+Yield = table('TableNames',yieldNames);
 for i = 5:5 %i = 1:length(names)
     baseFileName2 = names(i); %calls the file for grain yield at name i in the grain yeild folder
     fullFileName2 = fullfile(folder2, baseFileName2); %adjust the file name to be redundant and less likely to cause errors
     temporaryFile2 = readtable(fullFileName2); %creates a table for the file with the name given from the above variables
     
-    %temporaryFile2.Year = cell2mat(temporaryFile2.Year); % I don't
-    %remember why these are here or what they do. I'll figure that out
-    %later
-    %temporaryFile2.Value = cell2mat(temporaryFile2.Value);
-
-    Yield = table(); %creates a new empety table Yield to store the data for grain yield for the given dacade
-    Yield.YEAR = temporaryFile2.Year(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2); %sets the YEAR variable of the Yield table to be equal to the Year variable from temporaryFile2 for values of 1911 to 2010 
+    tYield = table(); %creates a new empety table Yield to store the data for grain yield for the given dacade
+    tYield.YEAR = temporaryFile2.Year(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2); %sets the YEAR variable of the Yield table to be equal to the Year variable from temporaryFile2 for values of 1911 to 2010 
     %I need to adjust these scripts to have more flexible year selection
-    Yield.REGION = temporaryFile2.AgDistrictCode(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2); %sets the REGION variable of Yield equal to the AgDistrictCode variable from tempoaryFile2 where the Year variable is between 1911 and 2010 
-    Yield.YIELD = round(temporaryFile2.Value(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2),1);%sets the YIELD variable of Yield equal to the Value variable from tempoaryFile2 where the Year variable is between 1911 and 2010
+    tYield.REGION = temporaryFile2.AgDistrictCode(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2); %sets the REGION variable of Yield equal to the AgDistrictCode variable from tempoaryFile2 where the Year variable is between 1911 and 2010 
+    tYield.YIELD = round(temporaryFile2.Value(temporaryFile2.Year >= y1 & temporaryFile2.Year <= y2),1);%sets the YIELD variable of Yield equal to the Value variable from tempoaryFile2 where the Year variable is between 1911 and 2010
 
-    base = mean(Yield.YIELD); %base is the baseline average determiend as average of all yields in all regions across the entire period of record
+    base = mean(tYield.YIELD); %base is the baseline average determiend as average of all yields in all regions across the entire period of record
     yDecades = decades; %creates a new table yDecades to show the results of the grain yields by decade and region
     
     %this loop calculates the average grain yield by decade
     for j = 1:height(yDecades) %for each decade
         for h = 1:7 %for each climate region (W, EW central, E, N, NS central, S, Entire state)
                 z = cell2mat(agClimateZone(h)); %creates a double array, z, from the cell at position h in agClimateZone
-                tempYield = Yield; %createes a temporay table that is adjusted with each iteration of the loop this allows the Yield variable to be used in later scripts to calculate yearly values
+                tempYield = tYield; %createes a temporay table that is adjusted with each iteration of the loop this allows the Yield variable to be used in later scripts to calculate yearly values
                 if h ~= 7 %if h is any region but the entire state
                     tempYield = tempYield(tempYield.REGION == z(1) | tempYield.REGION == z(2) | tempYield.REGION == z(3),:); %limits temp yield to rows where the rows are equal to z at postions 1, 2, and 3 (I think I could do this with a third loop, but its not worth my time right now)
                 end
@@ -99,7 +95,7 @@ for i = 5:5 %i = 1:length(names)
         end
     end
     if i == 5
-        wYield = Yield; %creates a new table showing wheat yields, wYield, as Yield is a temporary variable. This script may need to be adjusted later to make the script more flexible.
+        Yield.Wheat = tYield; %creates a new table showing wheat yields, wYield, as Yield is a temporary variable. This script may need to be adjusted later to make the script more flexible.
         wYDecades = yDecades; % the same as line 90, but for decadal averages
     end
 end
