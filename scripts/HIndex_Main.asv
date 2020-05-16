@@ -3,8 +3,21 @@
 %excel files they are converted into csv files. those csv files are then
 %used to produce an H-index based on temperature for each station.
 
-%Note: you will need to download the "Weather folder" and add it to your
-%directory file to ensure this program works. 
+%INPUTS: 
+%The inputs for this script are weather data (in .csv format). Our
+%weather csv's files have columns labled MONTH, DAY, YEAR, TMAX, TMIN, RAIN,and
+%SNOW (from left to right). This script also uses grain yields inputs (sourced from USDA-NASS) on a
+%monthly time-scale at the county level. Crop yield columns have headers of Program, Year, Period, Week Ending,	
+%Geo Level,	State,	State ANSI,	Ag District, Ag District Code, County, County ANSI, Zip Code, Region,
+%watershed_code, Watershed,	Commodity,	Data Item,	Domain,	Domain
+%Category, Value,	CV (%). However, we only use the Year, Ag District
+%Code, and Value column in this script. 
+
+%To ensure the script runs, make sure you have these data downloaded. 
+%Update "folderName" to match the name of the folder you used 
+%to store the weather data and "folderName2" to match the name of the
+%folder you used to store the crop data. 
+
 clear 
 clc
 
@@ -67,7 +80,7 @@ y1 = 1908;
 y2 = 2013;
 %tempNames = {'totWheat','irrWheat','noIrrWheat','totCorn','irrCorn','noIrrCorn','totSoy','irrSoy','noIrrSoy', 'totSorgh','irrSorgh','noIrrSorgh'};
 Yield = struct('totWheat',[],'irrWheat',[],'noIrrWheat',[],'totCorn',[],'irrCorn',[],'noIrrCorn',[],'totSoy',[],'irrSoy',[],'noIrrSoy',[], 'totSorgh',[],'irrSorgh',[],'noIrrSorgh',[]);%{'totWheat','irrWheat','noIrrWheat','totCorn','irrCorn','noIrrCorn','totSoy','irrSoy','noIrrSoy', 'totSorgh','irrSorgh','noIrrSorgh'});
-Yield;
+
 
 T = fieldnames(Yield); %creates a cell array containing the field names in the Yield structure array
 
@@ -116,7 +129,7 @@ bar(categorical(decadeNames),wYDecades.MEAN); %creates a bar graph showing the d
 figure('name', 'Yearly')
 bar(categorical(wYield.YEAR),wYield.YIELD); %creates a bar graph showing the total yield vs. time on a yearl basis
 
-%% Calculating All indecies test script
+%% 3 Calculating All indecies test script
 %The following section calculates h index(an index where the number of 
 %occurance is equal to the magnitude of the occurance based climate 
 %indices for temperature (H, L, C) and precipitaiton (W(mm),W(in), D). All
@@ -140,21 +153,20 @@ stationLength = length(stationNames); %variable for the number stations
 %temperature that is equal to or greater than that number of days. H-index
 %in Kansas ranges from 70-90 generally and L index ranges from 50-65
 %generally. 
-for l = 1:2
+for L = 1:2
     %for if you want to calculate the L-index(using Tmin) instead of the H-index (using Tmax)
-    if l == 2
-        useLIndex = 1; 
-    else
-        useLIndex = 0;
+    useLIndex = 0;
+    if L == 1
+        HIndex = zeros(2013-1890+1,24); %pre-allocating space for the maximum number of stations and years
+        HIndex(:,1) = (1890:2013)'; %sets the first column as the maximum array of years
     end
-
-    %predefining the size of H and L index
-    HIndex = zeros(2013-1890+1,24);
-    HIndex(:,1) = (1890:2013)'; %sets the first column as the maximum array of years
-
-    if useLIndex == 1
-        LIndex = HIndex; %creates a seperate variable to store the results for L-index if it is being used
+    
+    if L == 2
+        LIndex = zeros(2013-1890+1,24); %pre-allocating space for the maximum number of stations and years
+        LIndex(:,1) = (1890:2013)'; %sets the first column as the maximum array of years  
+        useLIndex = 1;
     end
+    
 
     for i = 1:stationLength %for each station
 
@@ -422,7 +434,7 @@ for i = 1:stationLength
                 end          
             end
             
-            
+            %calculating D-Index using a threshold in mm
             while counter < currentDryPeriod
                 counter = 0;
                 tempDryPeriod = 0;
@@ -447,7 +459,7 @@ for i = 1:stationLength
             currentDryPeriod = 0;
             tempDryPeriod = 0;
             counter2 = 0;
-            
+            %maximum dry period based on a threshold in inches
             for D = 1:height(year) %this loop identifies the longest dry period for the given year               
                 if year.RAIN2(D) < dryness2
                     tempDryPeriod = tempDryPeriod + 1;
@@ -458,7 +470,7 @@ for i = 1:stationLength
                     tempDryPeriod = 0;
                 end          
             end
-            
+            %caclulatind D-Index in inches
             while counter2 < currentDryPeriod
                 counter2 = 0;
                 tempDryPeriod = 0;
@@ -480,7 +492,7 @@ for i = 1:stationLength
             temporaryDIndex.DIndex2(j-temporaryDIndex.YEAR(1)+1) = currentDryPeriod;                 
     end
     
-    %Storing D-index
+    %Storing D-index for all statiosn
     for j = 1:height(temporaryDIndex) 
         for h = 1:length(DIndex) 
            if temporaryDIndex.YEAR(j) == DIndex(h,1) 
@@ -491,223 +503,237 @@ for i = 1:stationLength
     end  
 end
 timeDIndex = toc;
-
+%storing all of the indices in a structure array to be able to more easily
+%call them later
 Index = struct('HIndex',HIndex,'LIndex',LIndex,'CIndex',CIndex,'WIndexmm',WIndex,'WIndexin',WIndex2,'DIndex',DIndex);
 
-%% 3 graphing H-index time series
+%% 4 graphing indices vs time
 %creates a table to store all statistical values for all results for a
 %given Index
-HResults = table; %pre-define a table for the statistical values calculate later in this section
-HResults.NAME = tableStationNames'; %set the rows of this table to be the sation names
+T = fieldnames(Index); %creates a cell array with the names of the different indices
+indexStats = struct('HIndex',[],'LIndex',[],'CIndex',[],'WIndexmm',[],'WIndexin',[],'DIndex',[],'varNames',[]); %creates an empty cell array to store the statistical results for the graphs of each index
+limits = {[79 95],[55 72],[10 30],[5 26],[15 46],[6 13]}; %cell array containing the various y limits for the different indices
+for k = 1:6
+    indexName = cell2mat(T(k)); %gives the name of the current index as a character array
+    S = struct('type','.','subs',char(T(k,1)));
+    Results = table; %pre-define a table for the statistical values calculate later in this section
+    Results.NAME = tableStationNames'; %set the rows of this table to be the sation names
+    
+    %variables to control period analyzed
+    startYear = 1981;
+    stopYear = 2010;
+    useStartYear = 0;
+    useStopYear = 0;
 
-%variables to control period analyzed
-startYear = 1981;
-stopYear = 2010;
-useStartYear = 0;
-useStopYear = 0;
-
-%creates a new figure named H-Index. Really this should be done for both L
-%and  H index using an If statement
-figure('Name', 'H-Index')
+    %creates a new figure named H-Index. Really this should be done for both L
+    %and  H index using an If statement
+    figure('Name', indexName)
 
 
-for i = 1:length(tableStationNames) %for each station in station names 
-    %this section creates an array of subplots where each station has its
-    %own plot showing the data points in orange, the change in time in
-    %blue, and the general trend in black.
-    tempNames = split(tableStationNames(i), '_'); %assigns a variable to the stations name and cuts out any unnecissary labels used for organization purposes
-    HResults.NAME(i) = tempNames(2,1); %defines station name for the given row of the results table
-    
-    %for each station, create a new array with the non-zero values and their corresponding years
-    if useLIndex == 1
-        A = array2table(LIndex(LIndex(:,1+i) ~= 0,[ 1 1+i]));
-    else 
-        A = array2table(HIndex(HIndex(:,1+i) ~= 0,[ 1 1+i])); 
-    end
-    
-    %creat a new temporary table A to use in graphing
-    A.Properties.VariableNames{'Var1'} = 'YEAR'; 
-    A.Properties.VariableNames{'Var2'} = 'HIndex';  
-    
-    %create a new temporary table B that is table A from startYear to
-    %stopYear
-    B = A(A.YEAR>=startYear & A.YEAR <=stopYear,:);  
-    
-    %creats a set of subplots with a width of 6 and a height of 4
-    subplot(4,6,i)
-    %reduces the white space between graphs for the current graph
-    pos=get(gca,'Position');
-    set(gca,'Position',[pos(1,1) pos(1,2) pos(1,3)+.03 pos(1,4)]) %subplot position
-    
-   
-    lA = plot(A.YEAR,A.HIndex); %adds a line, lA, to the plot to show the change in H/L over time
-    lA.LineWidth = .5; %sets the line width to the minimum of 0.5pt
-    
-    hold on %add each addition graph to the same subplot    
-    mdlA = fitlm(A, 'HIndex ~ YEAR'); %performs a linear regression for the Year and the H Index    
-    zA = plot(mdlA); %plots the linear regression and data point    
-    
-    xA = A.YEAR;
-    yA = A.HIndex;
-    
-    meanB = B;
-    meanB.HIndex(:) = mean(B.HIndex);
-    zB = plot(meanB.YEAR, meanB.HIndex);
-    zB.Color = 'r';  
-    zB.LineWidth = 1.15;
-    %below are changes to the colors and markers of the plot for additional
-    %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
-    %can turn these on later if we want to visually analyze the error
-    %margins.
-    zA(1).Color = 'none'; %point color changed to make them invisible for less busy graphs%'#D95319'; %sets data points to be orange
-    zA(1).Marker = '.';
-    zA(1).MarkerSize = 10;
-    zA(2).Color = 'g';
-    zA(2).LineWidth = 1.15;
-    zA(3).Color = 'none';
-    zA(4).Color = 'none'; 
-    zA(2).LineStyle = '-';
-   
-    legend('off'); %hides the automatic legend generated by fitlm
-    
-    %if statement to set axis on left and bottom edge of subplot matrix
-    %instead of on each plot
-    if i == 19 || i == 20 || i == 21 || i == 22 || i == 23 
-        xlabel('Year', 'FontSize', 11)
-        set(gca,'Xtick',[1921 1951 1981 2011]);
-        %xticks(gca, 1890:2010, 4)
-    else
-        xlabel('')
-        xticks('')
-    end
-    
-    %if statement that allows greater control on the years examined
-    if useStartYear == 1 && useStopYear == 0
-        xlim([startYear 2014])
-    elseif useStartYear == 1 && useStopYear == 1
-        xlim([startYear (stopYear+1)])
-    elseif useStartYear == 0 && useStopYear == 1
-        xlim([1890 (stopYear+1)])
-    else     
-        xlim([1890 2014])
-    end
-    
-    % %sets boundries for the y axis for all graphs to be equal
-    if useLIndex == 1 
-        ylim([55 72])
-    else
-        ylim([79 95])
-    end
-    
-    %If statement to make sure that only far left subplots have axis labels
-    %and ticks marks
-    if i == 1 || i == 7 || i == 13 || i == 19
-        if useLIndex == 1
-            ylabel('L - Index (days/year)', 'FontSize', 11)
+    for i = 1:length(tableStationNames) %for each station in station names 
+        %this section creates an array of subplots where each station has its
+        %own plot showing the data points in orange, the change in time in
+        %blue, and the general trend in black.
+        tempNames = split(tableStationNames(i), '_'); %assigns a variable to the stations name and cuts out any unnecissary labels used for organization purposes
+        Results.NAME(i) = tempNames(2,1); %defines station name for the given row of the results table
+
+        
+        C = subsref(Index,S);                  
+        %for each station, create a new array with the non-zero values and their corresponding years
+        A = array2table(C(C(:,1+i) ~= 0,[ 1 1+i])); 
+        
+        %creat a new temporary table A to use in graphing
+        A.Properties.VariableNames{'Var1'} = 'YEAR'; 
+        A.Properties.VariableNames{'Var2'} = 'Index';  
+        
+        %create a new temporary table B that is table A from startYear to
+        %stopYear
+        B = A(A.YEAR>=startYear & A.YEAR <=stopYear,:); %creates a temporary table thats ranges from startYear to stopYear in length
+
+        %creats a set of subplots with a width of 6 and a height of 4
+        subplot(4,6,i)
+        %reduces the white space between graphs for the current graph
+        pos=get(gca,'Position');
+        set(gca,'Position',[pos(1,1) pos(1,2) pos(1,3)+.03 pos(1,4)]) %subplot position
+
+
+        lA = plot(A.YEAR,A.Index); %adds a line, lA, to the plot to show the change in H/L over time
+        lA.LineWidth = .5; %sets the line width to the minimum of 0.5pt
+
+        hold on %add each addition graph to the same subplot    
+        mdlA = fitlm(A, 'Index ~ YEAR'); %performs a linear regression for the Year and the H Index    
+        zA = plot(mdlA); %plots the linear regression and data point    
+
+        xA = A.YEAR; %creates a tempory variable for graphing purposes
+        yA = A.Index;
+
+        meanB = B;
+        meanB.Index(:) = mean(B.Index);
+        zB = plot(meanB.YEAR, meanB.Index);
+        zB.Color = 'r';  
+        zB.LineWidth = 1.15;
+        %below are changes to the colors and markers of the plot for additional
+        %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
+        %can turn these on later if we want to visually analyze the error
+        %margins.
+        zA(1).Color = 'none'; %point color changed to make them invisible for less busy graphs%'#D95319'; %sets data points to be orange
+        zA(1).Marker = '.';
+        zA(1).MarkerSize = 10;
+        zA(2).Color = 'g';
+        zA(2).LineWidth = 1.15;
+        zA(3).Color = 'none';
+        zA(4).Color = 'none'; 
+        zA(2).LineStyle = '-';
+
+        legend('off'); %hides the automatic legend generated by fitlm
+
+        %if statement to set axis on left and bottom edge of subplot matrix
+        %instead of on each plot
+        if i == 19 || i == 20 || i == 21 || i == 22 || i == 23 
+            xlabel('Year', 'FontSize', 11)
+            set(gca,'Xtick',[1921 1951 1981 2011]);
+            %xticks(gca, 1890:2010, 4)
         else
-            ylabel('H - Index (days/year)', 'FontSize', 11)
-        end        
-        yticks('auto')
-    else
-        ylabel('')
-        yticks('')
-    end
-    %this section  creates a table statistically important values for both
-    %the POR and the specified period
-    
-    
-    %this code runs trends analysis on x and y as independant and depedant variables
-    %it tests the hypothesis of no correlation against the alternative
-    %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
-    %we reject the hypothesis.
-    %analysis for the whole period of record
-    [tau,pD1]=corr(xA,yA,'type','kendall'); %kendall method
-    tau_pA(i,1:3)=[i,tau,pD1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
-    [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
-    rho_pA(i,1:3)=[i,rho,p2];
-    [r,p3]=corr(xA,yA);%pearson (linear) method
-    r_pA(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y); 
-    
-    %Allocates a number to each station based on there Climate Division in
-    %the state of Kansas
-    
-    if HResults.NAME(i,1) == "Saint Francis" 
-        HResults.climateDivision(i) = 1;
-    elseif HResults.NAME(i,1) ==  "Oberlin"  
-        HResults.climateDivision(i) = 1;
-    elseif HResults.NAME(i,1) ==   "Colby"
-        HResults.climateDivision(i) = 1;      
-    elseif HResults.NAME(i) == "Phillipsburg"
-        HResults.climateDivision(i) = 2;
-    elseif HResults.NAME(i) == "Minneapolis" 
-        HResults.climateDivision(i) = 2;    
-    elseif HResults.NAME(i) == "Horton" 
-        HResults.climateDivision(i) = 3;
-    elseif HResults.NAME(i) == "Atchison" 
-        HResults.climateDivision(i) = 3;
-    elseif HResults.NAME(i) == "Manhattan"
-        HResults.climateDivision(i) = 3;    
-    elseif HResults.NAME(i) == "Tribune"
-        HResults.climateDivision(i) = 4;
-    elseif HResults.NAME(i) == "Wakeeney"
-        HResults.climateDivision(i) = 4;    
-    elseif HResults.NAME(i) == "Hays"
-        HResults.climateDivision(i) = 5;
-    elseif HResults.NAME(i) == "McPherson"
-        HResults.climateDivision(i) = 5;    
-    elseif HResults.NAME(i) == "Ottawa"
-        HResults.climateDivision(i) = 6;
-    elseif HResults.NAME(i) == "Lakin" 
-        HResults.climateDivision(i) = 7;
-    elseif HResults.NAME(i) == "Elkhart" 
-        HResults.climateDivision(i) = 7;
-    elseif HResults.NAME(i) == "Ashland"
-        HResults.climateDivision(i) = 7;    
-    elseif HResults.NAME(i) == "Larned"
-        HResults.climateDivision(i) = 8;
-    elseif HResults.NAME(i) == "MedicineLodge"
-        HResults.climateDivision(i) = 8;    
-    elseif HResults.NAME(i) == "Winfield"
-        HResults.climateDivision(i) = 9;             
-    elseif HResults.NAME(i) == "Sedan" 
-        HResults.climateDivision(i) = 9;         
-    elseif HResults.NAME(i) == "Independence" 
-        HResults.climateDivision(i) = 9;            
-    elseif HResults.NAME(i) == "FortScott" 
-        HResults.climateDivision(i) = 9;         
-    elseif HResults.NAME(i) == "Columbus"
-        HResults.climateDivision(i) = 9;         
-    end
-   
-    
-    
-    HResults.slopePOR(i) = round(table2array(mdlA.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm function
-    HResults.adjustedSlopePOR(i) = HResults.slopePOR(i)*100; %this converts the slope from days/year to days/century
-    HResults.rPOR(i) = r_pA(i,2);
-    HResults.rSqrPOR(i) = mdlA.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
-    HResults.rPValuePOR(i) = round(table2array(mdlA.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
-    HResults.rhoPOR(i) = rho_pA(i,2);
-    HResults.rhoPValuePOR(i) = rho_pA(i,3);
-    HResults.tauPOR(i) = tau_pA(i,2);
-    HResults.tauPValuePOR(i)= tau_pA(i,3);
-    HResults.minPOR(i) = min(A.HIndex);
-    HResults.maxPOR(i) = max(A.HIndex);
-    HResults.meanPOR(i) = round(mean(A.HIndex),1); %calculates the average H index for the station and adds that to a new table
-    HResults.medianPOR(i) = median(A.HIndex);
-    
-    l = yline(HResults.meanPOR(i));
-    l.Color = ('m');
-    l.LineWidth = 1.25;
-    l.LineStyle = '--';
-    
-    HResults.minSP(i) = min(B.HIndex);
-    HResults.maxSP(i) = max(B.HIndex);
-    HResults.meanSP(i) = round(mean(B.HIndex),1);
-    HResults.medianSP(i) = median(B.HIndex);    
-  
-    title(compose(tempNames(2,1)+"\n"+num2str(HResults.slopePOR(i)*100,"%#.1f")),'FontSize', 11);
-end
+            xlabel('')
+            xticks('')
+        end
 
+        %if statement that allows greater control on the years examined,
+        %this usually isn't used, but if you want to take a closer look at
+        %certain years it helps to have this built in already
+        if useStartYear == 1 && useStopYear == 0
+            xlim([startYear 2014])
+        elseif useStartYear == 1 && useStopYear == 1
+            xlim([startYear (stopYear+1)])
+        elseif useStartYear == 0 && useStopYear == 1
+            xlim([1890 (stopYear+1)])
+        else     
+            xlim([1890 2014])
+        end
+
+        % %sets boundries for the y axis for all graphs to be equal
+        
+        ylim(cell2mat(limits(k)))
+        
+        %If statement to make sure that only far left subplots have axis labels
+        %and ticks marks
+        if i == 1 || i == 7 || i == 13 || i == 19                          
+            ylabel(compose(string(indexName) +" (days/year)"), 'FontSize', 11)
+            yticks('auto')
+        else
+            ylabel('')
+            yticks('')
+        end
+        %this section  creates a table statistically important values for both
+        %the POR and the specified period
+
+
+        %this code runs trends analysis on x and y as independant and depedant variables
+        %it tests the hypothesis of no correlation against the alternative
+        %hypothesis of a nonzero correlation. so if p value is smaller than 0.05,
+        %we reject the hypothesis.
+        %analysis for the whole period of record
+        [tau,pD1]=corr(xA,yA,'type','kendall'); %kendall method
+        tau_pA(i,1:3)=[i,tau,pD1];%j is stations number in the loop; tou is kendall tou value; and p1 is the p-value for the test.
+        
+        [rho,p2]=corr(xA,yA,'type','spearman');%spearman method
+        rho_pA(i,1:3)=[i,rho,p2];
+        [r,p3]=corr(xA,yA);%pearson (linear) method
+        r_pA(i,1:3)=[i,r,p3]; %pearson(Least square method) method corrcoef(x,y); 
+
+        %Allocates a number to each station based on there Climate Division in
+        %the state of Kansas. I'm sure there is a faster and more elegant way
+        %to do this, but the best I could come up with was a bunch of if
+        %statements.
+
+        if Results.NAME(i,1) == "Saint Francis" 
+            Results.climateDivision(i) = 1;
+        elseif Results.NAME(i,1) ==  "Oberlin"  
+            Results.climateDivision(i) = 1;
+        elseif Results.NAME(i,1) ==   "Colby"
+            Results.climateDivision(i) = 1;      
+        elseif Results.NAME(i) == "Phillipsburg"
+            Results.climateDivision(i) = 2;
+        elseif Results.NAME(i) == "Minneapolis" 
+            Results.climateDivision(i) = 2;    
+        elseif Results.NAME(i) == "Horton" 
+            Results.climateDivision(i) = 3;
+        elseif Results.NAME(i) == "Atchison" 
+            Results.climateDivision(i) = 3;
+        elseif Results.NAME(i) == "Manhattan"
+            Results.climateDivision(i) = 3;    
+        elseif Results.NAME(i) == "Tribune"
+            Results.climateDivision(i) = 4;
+        elseif Results.NAME(i) == "Wakeeney"
+            Results.climateDivision(i) = 4;    
+        elseif Results.NAME(i) == "Hays"
+            Results.climateDivision(i) = 5;
+        elseif Results.NAME(i) == "McPherson"
+            Results.climateDivision(i) = 5;    
+        elseif Results.NAME(i) == "Ottawa"
+            Results.climateDivision(i) = 6;
+        elseif Results.NAME(i) == "Lakin" 
+            Results.climateDivision(i) = 7;
+        elseif Results.NAME(i) == "Elkhart" 
+            Results.climateDivision(i) = 7;
+        elseif Results.NAME(i) == "Ashland"
+            Results.climateDivision(i) = 7;    
+        elseif Results.NAME(i) == "Larned"
+            Results.climateDivision(i) = 8;
+        elseif Results.NAME(i) == "MedicineLodge"
+            Results.climateDivision(i) = 8;    
+        elseif Results.NAME(i) == "Winfield"
+            Results.climateDivision(i) = 9;             
+        elseif Results.NAME(i) == "Sedan" 
+            Results.climateDivision(i) = 9;         
+        elseif Results.NAME(i) == "Independence" 
+            Results.climateDivision(i) = 9;            
+        elseif Results.NAME(i) == "FortScott" 
+            Results.climateDivision(i) = 9;         
+        elseif Results.NAME(i) == "Columbus"
+            Results.climateDivision(i) = 9;         
+        end
+
+        %this section stores various statistical numbers in a dedicated
+        %column for the Results table r is pearson correlation coefficient, rho is
+        %spearman correlation, tau is for Mann-Kindall correlation. POR is
+        %for values that are calculated over the entire period of record.
+        Results.slopePOR(i) = round(table2array(mdlA.Coefficients(2,1)),3);%calls the slope given for the linear regression of the data using the fitlm function
+        Results.adjustedSlopePOR(i) = Results.slopePOR(i)*100; %this converts the slope from days/year to days/century
+        Results.rPOR(i) = r_pA(i,2);
+        Results.rSqrPOR(i) = mdlA.Rsquared.Ordinary; %calls the r^2 value from the fitlm function and inputs it into a new table
+        Results.rPValuePOR(i) = round(table2array(mdlA.Coefficients(2,4)),3); %calls the pValue from the fitlm function and inputs it into a new table
+        Results.rhoPOR(i) = rho_pA(i,2);
+        Results.rhoPValuePOR(i) = rho_pA(i,3);
+        Results.tauPOR(i) = tau_pA(i,2);
+        Results.tauPValuePOR(i)= tau_pA(i,3);
+        Results.minPOR(i) = min(A.Index);
+        Results.maxPOR(i) = max(A.Index);
+        Results.meanPOR(i) = round(mean(A.Index),1); %calculates the average H index for the station and adds that to a new table
+        Results.medianPOR(i) = median(A.Index);
+        %plots a horizontal line for the average value over the entire
+        %period of record. Color is magenta, style is dashed line, line
+        %width slightly thicker than standard.
+        l = yline(Results.meanPOR(i));
+        l.Color = ('m');
+        l.LineWidth = 1.25;
+        l.LineStyle = '--';
+        %stores results for a specific period (SP) defined in variable B by
+        %the startYear and stopYear
+        Results.minSP(i) = min(B.Index);
+        Results.maxSP(i) = max(B.Index);
+        Results.meanSP(i) = round(mean(B.Index),1);
+        Results.medianSP(i) = median(B.Index);    
+        %gives each subplot a title with the station name and the slope of
+        %trend for the entire period of record.
+        title(compose(tempNames(2,1)+"\n"+num2str(Results.slopePOR(i)*100,"%#.1f")),'FontSize', 11);
+    end
+    
+    S2 = struct('type','.','subs',char(T(k,1))); %describes the current index
+    indexStats = subsasgn(indexStats,S2,table2cell(Results)); %stores the table from Results, a cell of the indexStats table
+    indexStats.varNames = Results.Properties.VariableNames; %stores the names of all the variables used in the Results table.
+end
+%Might create a save script for these graphs too
 
 %use the below script when you want to automatically make tiff files for
 %the given graphs. There is an issue with this function in that it doesn't
@@ -723,36 +749,25 @@ y1 = 1908; %smallest year for climate data
 y2 = 2013; %largest year for climate data
 r = 1+y2-y1; %the size of the range between y1 and y2 for creating row indices later
 
-if useLIndex == 1
-    avgLIndex = table(); %creates a new table for calculating the climate region averages of L Index   
-else
-    avgHIndex = table(); %creates a new table for calculating the climate region averages of H Index
+varNames = {'HIndex','LIndex','CIndex','WIndexmm','WIndexin','DIndex'}; %creating a cell array containing the names of all the indices
+avgClimateIndex = table([1893:2013]','VariableNames',{'YEAR'}); %creates a year column ranging from year y1 to year y2
+
+for j = 1:length(varNames) %for each index used
+    S = struct('type','.','subs',varNames(j)); %structure variable for subreferencing. uses dot index and field name based on varNames at position j 
+    B = subsref(Index,S); %creates temporary array B equal to the Index at with name J
+    C = zeros(124,1); %pre-allocates the size of C to reduce errors
+    for i = 1:length(climateZone) %for each aggregate climate region (E, W, N, S etc.)
+        B(B==0) = NaN; %sets 0 values in the array equal to NaN for easier removal later and more accurate calculation of mean in the next line.
+        C(:,i) = mean(B(:,cell2mat(climateZone(i))),2,'omitnan'); %all rows for column i of temporary array C are set equal to the mean of index j for all the stations in climate zone i      
+    end 
+    C(isnan(C(:,1)),:) = [];
+    avgClimateIndex = subsasgn(avgClimateIndex,S,C); %set the variable(defined by S) in table avgClimateIndex equal to the temporary table C
+    
 end
 
 
-%This loop calculates the regional averages for the climate index based on
-%the climate zones for Kansas.
-for i = 1:length(climateZone)
-    if useLIndex == 1       
-        avgLIndex.YEAR = LIndex(:,1);       
-        LIndex(LIndex==0) = NaN;
-        avgLIndex.LIndex(:,i) = mean(LIndex(:,cell2mat(climateZone(i))),2,'omitnan'); 
-    else
-        
-        avgHIndex.YEAR = HIndex(:,1);
-        HIndex(HIndex==0) = NaN;
-        avgHIndex.HIndex(:,i) = mean(HIndex(:,cell2mat(climateZone(i))),2,'omitnan');       
-    end
-end 
-
-if useLIndex == 1
-    avgLIndex = avgLIndex(avgLIndex.YEAR >= y1 & avgLIndex.YEAR <= y2,:);
-else
-    avgHIndex = avgHIndex(avgHIndex.YEAR >= y1 & avgHIndex.YEAR <= y2,:);
-end
 %This loop creates a structure array that contains the regional averages
 %for each crop 
-
 avgYield = struct('totWheat',[],'irrWheat',[],'noIrrWheat',[],'totCorn',[],'irrCorn',[],'noIrrCorn',[],'totSoy',[],'irrSoy',[],'noIrrSoy',[], 'totSorgh',[],'irrSorgh',[],'noIrrSorgh',[]); 
 % avgWYield.YEAR = zeros(r,1); %Pre-allocating to reduce errors
 % avgWYield.YIELD = zeros(r,7);
@@ -769,13 +784,12 @@ for h = 1:length(names)
         %step below creates a temporary table, tempYield, based on data from the crop
         %identified in S. The table has three columns, labeled YEAR,
         %REGION, and YIELD. It was easier for me to work with table than
-        %cells for the next steps.
-               
+        %cells for the next steps.               
         tempAvgYield = cell2table(subsref(Yield,S),'VariableNames',{'YEAR','REGION','YIELD'});
+        
         %the below if statement alster the table to only contain data from 
         %the region i. In this loop i == 7 is the statewhide average, so we
-        %don't alter tempYield.
-        
+        %don't alter tempYield.       
         if i ~= 7
             %climate zone in kansas are, in ever case, defined by 3 climate
             %region markers. therfore, as long as i is not 7, z will be a
@@ -783,15 +797,11 @@ for h = 1:length(names)
             %zones.
             tempAvgYield = tempAvgYield(tempAvgYield.REGION == z(1) | tempAvgYield.REGION == z(2) | tempAvgYield.REGION == z(3),:); %
         end
-        
-      
+            
         for j = y1:y2 %for the maximum range of years at any station defined by y1 as minimum year and y2 as maximum year
-
              B.YEAR(1-y1+j) = j; %creates a year column for temp table B where the year is the range of years for climate data                         
              B.YIELD(1-y1+j,i) = mean(tempAvgYield.YIELD(tempAvgYield.YEAR == j)); %where the years of j an tempAvgYield are equal, set the cell at that position equal to the average yeild of all crops during that year.                 
-
-        end    
-               
+        end                 
     end
     B(isnan(B.YIELD(:,1)),:) = []; %removes all rows where there are
     %NaN values in the YIELD field in any column
@@ -800,13 +810,14 @@ end
 
 %avgYield(isnan(avgYield.YIELD(:,1)),:) = [];
 %% 4.0.2.1 Sorting data and Pettitt test
-%this script will need at least three loops. First we will have an outer
+
 clc
-%sorting loop
+%creat CP as a temporary table to store information and cropCP as a
+%permanent variable to store the results of each iterration of CP in the
+%for loop.
 CP = table();
-%fileName='annual_pettitt_sort_sample.xlsx';
-%avgLIndex = readtable(fileName);
 cropCP = struct('totWheat',[],'irrWheat',[],'noIrrWheat',[],'totCorn',[],'irrCorn',[],'noIrrCorn',[],'totSoy',[],'irrSoy',[],'noIrrSoy',[], 'totSorgh',[],'irrSorgh',[],'noIrrSorgh',[]); 
+
 for h = 1:length(names) %for the number of crops described in names   
     %this will define what part of avgYield(and thus what crop) the loop is
     %running
@@ -817,24 +828,17 @@ for h = 1:length(names) %for the number of crops described in names
         %creates a temporary variable to more easily sort by index value.
         CP.Region = ["west", "EWcentral", "east", "north", "NScentral", "south", "whole"]'; %sets the 
         
-        B = cell2table(subsref(avgYield,S),'VariableNames',{'YEAR','Index'});           
-       
-
-%         if sum(ismember("IndexRank" ,B.Properties.VariableNames)) ==1 || sum(ismember("U" ,B.Properties.VariableNames)) ==1 
-%             B = removevars(B, ["U", "IndexRank"]);
-%         end
-        B.Index = B.Index(:,j);
+        B = cell2table(subsref(avgYield,S),'VariableNames',{'YEAR','Index'});   %creates temporary table B that is used to calculate the         
+        B.Index = B.Index(:,j); %sets the Index variable of Table B equal to the climate region at position j
+        
         %create a rank column based on year in ascending order
         for i = 1:height(B)          
             B.YearRank(i) = i;              
         end
+        
         %sort temp table B by ascending index magnitude
         B = sortrows(B,2);
-        %store the altered order of the Year Rank in avg""Index
-
-      
-        %avgYield.IndexRank(:,j) = B.YearRank;
-        
+        %store the altered order of the Year Rank in avg""Index           
 
         %Pettitt loop
         for k = 1:height(B) %for the number of rows in avgLIndex
@@ -850,11 +854,11 @@ for h = 1:length(names) %for the number of crops described in names
         K=max(abs(B.U)); %calculates the statistical change point test statistic
         K_c=(-log(0.05)*((height(B)^3)+(height(B)^2))/6)^.5; %calculating the critical value at the give station
         CP.ChangePoint(j) = K; %stores the U value as the change point
+        
         if K>K_c %if K is greater than K_c, than the change point is statistically significant P<0.05 and we calculate 1-P
             CP.CL(j)=1;
             CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2));
         else
-
             CP.CL(j) = 0;
             CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2)); %still calculating 1-P just in case results are significant for P<0.10
         end     
@@ -866,156 +870,174 @@ for h = 1:length(names) %for the number of crops described in names
         K = 0;
     end
 end
-% 4.0.2.2 Climite calculations for Pettitt
-%useLIndex = 0;
+%% 4.0.2.2 Climite calculations for Pettitt
+
 CP = table();
-for j= 1:length(climateZone)
-    %creates a temporary variable to more easily sort by index value.
-    CP.Region = ["west", "EWcentral", "east", "north", "NScentral", "south", "whole"]'; %sets the 
-    
-    if useLIndex == 1
-        B = renamevars(avgLIndex,"LIndex","Index");
+T = avgClimateIndex.Properties.VariableNames; %creates a cell array of the Index Names used in avgClimateIndex
+climateCP = table();
+for l = 2:width(avgClimateIndex) %for each index used
+    S = struct('type','.','subs',char(T(l))); %define a structure array with type 'dot' and a field that is the current index at position l
+    for j= 1:length(climateZone) %For each climate zone in Kansas
+        %creates a temporary variable to more easily sort by index value.
+        CP.Region = ["west", "EWcentral", "east", "north", "NScentral", "south", "whole"]'; %sets the Region variable of the CP table to be equal to the names of the different climate regions for Kansas
+        B = table(avgClimateIndex.YEAR,subsref(avgClimateIndex,S),'VariableNames',{'YEAR','Index'}); %creates a temporary table, B, that is the same as the Index described by S in the avgClimateIndex table        
 
-    else
-        B = renamevars(avgHIndex,"HIndex","Index");
-    end
-   
-
-
-    if sum(ismember("IndexRank" ,B.Properties.VariableNames)) ==1 || sum(ismember("U" ,B.Properties.VariableNames)) ==1 
-        B = removevars(B, ["U", "IndexRank"]);
-    end
-    B.Index = B.Index(:,j);
-    %create a rank column based on year in ascending order
-    for i = 1:height(B)
-       B.YearRank(i) = i; 
-    end
-    %sort temp table B by ascending index magnitude
-    B = sortrows(B,2);
-    %store the altered order of the Year Rank in avg""Index
-
-
-    if useLIndex == 1
-        avgLIndex.IndexRank(:,j) = B.YearRank;
-    else
-        avgHIndex.IndexRank(:,j) = B.YearRank;
-    end
-   
-    %Pettitt loop
-    for k = 1:height(B) %for the number of rows in avgLIndex
-        B.U(k)=2*sum(B.YearRank(1:k))-k*(height(B)+1); %calculates the rank statistic
-        %storing rank statistic                      
-        if abs(B.U(k))==max(abs(B.U)) %determines the postion of the max rank statistic
-            c=k;
+        B.Index = B.Index(:,j); %adjusts B index to only be equal to column j
+       
+        %create a rank column based on year in ascending order
+        for i = 1:height(B)
+           B.YearRank(i) = i; 
         end
-    end
+        
+        %sort temp table B by ascending index magnitude
+        B = sortrows(B,2);
 
-    %determines the year the change point occured at
-    CP.YEAR(j) = c+min(B.YEAR)-1;
-    K=max(abs(B.U)); %calculates the statistical change point test statistic
-    K_c=(-log(0.05)*((height(B)^3)+(height(B)^2))/6)^.5; %calculating the critical value at the give station
-    CP.ChangePoint(j) = K;
-    if K>K_c
-        CP.CL(j)=1;
-        CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2));
-    else
+        %Pettitt loop
+        for k = 1:height(B) %for the number of rows in avgLIndex
+            B.U(k)=2*sum(B.YearRank(1:k))-k*(height(B)+1); %calculates the rank statistic
+            %storing rank statistic                      
+            if abs(B.U(k))==max(abs(B.U)) %determines the postion of the max rank statistic
+                c=k; %c is equal to the row where U is a maxium, this is used later to calculate the year where the max u occurs
+            end
+        end
 
-        CP.CL(j) = 0;
-        CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2));
-    end     
+        %determines the year the change point occured at
+        CP.YEAR(j) = c+min(B.YEAR)-1;
+        K=max(abs(B.U)); %calculates the statistical change point test statistic
+        K_c=(-log(0.05)*((height(B)^3)+(height(B)^2))/6)^.5; %calculating the critical value at the give station
+        CP.ChangePoint(j) = K;
+        if K>K_c %if K is larger than K_c, the change point is statistically significant for P<0.05
+            CP.CL(j)=1;
+            CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2)); % calculates the exact significane of 1-P
+        else
+            CP.CL(j) = 0;
+            CP.P(j) = 1 - exp((-6*K^2)/(height(B)^3+height(B)^2)); %calculating 1-P incase a large number of points are significant for P<0.10
+        end     
 
-    if useLIndex == 1
-        avgLIndex.U(:,j)= B.U;
-        climateLCP = CP;
-    else
-        avgHIndex.U(:,j) = B.U;
-        climateHCP = CP;
+        climateCP = subsasgn(climateCP,S,table2array(CP)); %stores the change points for each region in variable named after the climate index described by S for the climateCP
+        B = table(); %reset variables for next iteration of the loop
+        K = 0;
     end
     
-    B = table();
-    K = 0;
 end
 
         
 %% 4.0.2 Graphing time series vs. Yearly Average Grain Yield
+%expected run time ~200 seconds
 tic
-locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"];
+locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"]; %names of each climate region
+climLimits = {[79 95],[55 72],[10 30],[5 26],[15 46],[6 13]}; %y limits of climate indices order with position is H, L, C, W(mm), W(in), D
+cropLimits = {[0 70], [0 220], [0 70], [0 125]};  %y limites of crop yields order with position is winter wheat, corn, soybeans, sorghum
 
-for h = 1:length(names)
-    
-    T = fieldnames(avgYield); %creates a cell array containing the names of all the crop s in the avgYield structure array
-    S = struct('type','.','subs',T(h,1)); %creates the indexing structure array for each crop in T for the h itteration of the loop
-    
-    for j = 1:2 %for the two different climate gradients (North to South and East to West)
-        if j == 1 %j==1 represents the EW gradient
-            fig = figure('Name', compose("TIndex vs " + string(cell2mat(T(h,1)))+"Yield, EW"),'Position',[10 50 1200 1000]); %name the figure "Tindex vs (name of crop) Yield, EW"
-            climZone = [1 2 3 7]; %defines the climate regions that are EW, as well as the averge (7)
-        else %repeat of above, but for NS           
-            climZone = [4 5 6 7];
-            fig = figure('Name', compose("TIndex vs " + string(cell2mat(T(h,1)))+"Yield, NS"),'Position',[10 50 1200 1000]);
-        end
+cropClimateStats = table(); %variable for storing statistical data from
+% the following graphs. This isn't complete yet.
+cropClimateStats.Region = locations';
+
+for k = 2:width(avgClimateIndex) %for each index
+    T2 = avgClimateIndex.Properties.VariableNames; %T2 is a cell array of the variable names (climate indices) in the avgClimateIndex table
+    S2 = struct('type','.','subs',T2(k));
         
-        %useLIndex = 1;
-        % cropClimateStats = table(); %variables for staring statistical data from
-        % the following graphs. This isn't complete yet.
-        % cropClimateStats.Region = locations';
-        for i = climZone %for the climate zone, either east to west or north to south
-            B = cell2table(subsref(cropCP,S));
-            changeP1 = B.Var2(i); %this is the change point for the crop yield
-            changeP2 = changeP1; %this is the location of the change point for the climate, use the below script for the actual climate change point
-        %     if useLIndex == 1
-        %         changeP2 = climateLCP.YEAR(i);
-        %     else
-        %         changeP2 = climateHCP.YEAR(i);
-        %     end
+    B = table(avgClimateIndex.YEAR, subsref(avgClimateIndex,S2),'VariableNames',{'YEAR','Index'});
+             
+           
+    for h = 1:length(names) %for each crop 
+
+        T = fieldnames(avgYield); %creates a cell array containing the names of all the crop s in the avgYield structure array
+        S = struct('type','.','subs',T(h,1)); %creates the indexing structure array for each crop in T for the h itteration of the loop
+        %Remove this, since changing to only a single subplot
+       
+        fig = figure('Name', compose(string(cell2mat(T2(k))) + " vs " + string(cell2mat(T(h,1)))+"Yield"),'Position',[10 50 1500 1000]); %name the figure "Tindex vs (name of crop) Yield, EW"
         
-            if i ~= 7 %for all regions but the avager
-                if j == 1
-                    subplot(2,2,i) %the subplot position for the climate regions 
-                else
-                    subplot(2,2,i-3)
-                end
+        
+        for i = 1:length(locations) %for each climate zone
+            E = cell2table(subsref(cropCP,S)); %temporary table 
+            changeP1 = E.Var2(i); %this is the change point for the crop yield
+            changeP2 = changeP1; %this is the year of the change point for the climate lines, this is currently set to be the same change point as the crop yield change point
+            
+            %Use thise scripts if you want the change point for the climate
+            %line to be based on the climate change point rather than the
+            %crop change point
+            %indexCP = subsref(climateCP,S2);
+%            changeP2 = str2num(index ylim(cell2mat(cropLimits(1)));CP(i,2));
+
+            %places graphs for the E to W regions on the left and the N to
+            %S regions on the right with the statewide average across the
+            %bottom
+            if i == 2
+                subplot(4,2,3)
+            elseif i == 3
+                subplot(4,2,5)
+            elseif i == 4
+                subplot(4,2,2)
+            elseif i == 5
+                subplot(4,2,4)
             else
-                subplot(2,2,4) %the subplot position for the statewide average
-            end
-            
+                subplot(4,2,i)
+            end                  
+                     
             A = cell2table(subsref(avgYield,S),'VariableNames',{'YEAR','YIELD'}); %creates a temporary table for the crop yield stored in the avgYield structure array
-            
-            yyaxis left
-            b = bar(A.YEAR,A.YIELD(:,i),1);
+                                                             
+            yyaxis left %graphs the yield results using the left hand y axis
+            b = bar(A.YEAR,A.YIELD(:,i),1); %graphing the crop yields as bars
+            %b.FaceColor = 	[0.165 0.042 0.042];%'#EDB120';
             %Adjusts ylimit to be the same for all graphs of a given crop
             %type
             if h == 1 || h==2 || h==3
-                ylim([0 70]);
+                ylim(cell2mat(cropLimits(1)));
             end
 
             if h == 4||h==5||h==6
-                ylim([0 220])
+                 ylim(cell2mat(cropLimits(2)));
             end
 
             if h == 7||h==8||h==9
-                ylim([0 70]);
+                 ylim(cell2mat(cropLimits(3)));
             end
 
             if h == 10||h==11||h==12
-                ylim([0 125]);
+                 ylim(cell2mat(cropLimits(4)));
             end
             
             hold on
-
+           
+            %plotting linear trends for yield for entire period
             mdlC = fitlm(A.YEAR,A.YIELD(:,i));
             zC = plot(mdlC);
-
+            %before change point
             mdlC1 = fitlm(A.YEAR(A.YEAR<=changeP1),A.YIELD(A.YEAR<=changeP1,i));
             zC1 = plot(mdlC1);
-
+            %after change point
             mdlC2 = fitlm(A.YEAR(A.YEAR>changeP1),A.YIELD(A.YEAR>changeP1,i));
             zC2 = plot(mdlC2);
+            
+            %if k == 2 %only calculate these values once (during the first climate index iteration)
+                %calculating and storing the P-Value for Mann-Kindal
+                %non-parametric regression of crop data
+                %calculating tau for the current crop over the entire period  
+                [tau,pD]=corr(A.YEAR,A.YIELD(:,i),'type','kendall','rows','complete'); %kendall method
+                D(i,1) = pD;
+                %before the change point
+                [tau,pD]=corr(A.YEAR(A.YEAR<=changeP1),A.YIELD(A.YEAR<=changeP1,i),'type','kendall','rows','complete'); %kendall method
+                D(i,2) = pD;
+                %after the change point
+                [tau,pD]=corr(A.YEAR(A.YEAR>changeP1),A.YIELD(A.YEAR>changeP1,i),'type','kendall','rows','complete'); %kendall method
+                D(i,3) = pD;
 
+                %storing the slope and corresponding P-value for the linear models
+                D(i,4) = table2array(mdlC.Coefficients(2,1));
+                D(i,5) = table2array(mdlC.Coefficients(2,4));
+                D(i,6) = table2array(mdlC1.Coefficients(2,1));
+                D(i,7) = table2array(mdlC1.Coefficients(2,4));
+                D(i,8) = table2array(mdlC2.Coefficients(2,1));
+                D(i,9) = table2array(mdlC2.Coefficients(2,4));
+            %end
+            %adjusting color and line type for grain yield trend lines
+            yieldColor = 	'c';
+            
             zC(1).Color = 'none'; 
             zC(1).Marker = '.';
             zC(1).MarkerSize = 10;
-            zC(2).Color = 'm';
+            zC(2).Color = yieldColor;
             zC(2).LineStyle = '--';
             zC(2).LineWidth = 1.15;
             zC(3).Color = 'none';
@@ -1024,7 +1046,7 @@ for h = 1:length(names)
             zC1(1).Color = 'none'; 
             zC1(1).Marker = '.';
             zC1(1).MarkerSize = 10;
-            zC1(2).Color = 'm';
+            zC1(2).Color = yieldColor;
             zC1(2).LineWidth = 1.15;
             zC1(3).Color = 'none';
             zC1(4).Color = 'none'; 
@@ -1032,48 +1054,73 @@ for h = 1:length(names)
             zC2(1).Color = 'none'; 
             zC2(1).Marker = '.';
             zC2(1).MarkerSize = 10;
-            zC2(2).Color = 'm';
+            zC2(2).Color = yieldColor;
             zC2(2).LineWidth = 1.15;
             zC2(3).Color = 'none';
             zC2(4).Color = 'none'; 
 
-            ylabel(compose('Average' + string(cell2mat(T(h,1))) + ' Yield (Bu/acre)'))
-           
-            yyaxis right
+            ylabel(compose('Average' + string(cell2mat(T(h,1))) + ' Yield (Bu/acre)')) %y label for the grain yield (left hand y axis)
+
+            yyaxis right %set right hand y axis for climate 
+
+            %creating a temporary table, B, for climate 
+            B = table(avgClimateIndex.YEAR, subsref(avgClimateIndex,S2),'VariableNames',{'YEAR','Index'});
+                        
+            %temporary table for the climate index described by S2 from the avgClimateIndex table
+            p = plot(B.YEAR, B.Index(:,i)); %plot year versus climate in region i, only 
+         
+            %I'll need to adjust the ylim based on the climate index being
+            %used. I can probably copy this from the previous section of
+            %script for ylimits
             
-            if useLIndex ==  1
-                p = plot(avgLIndex.YEAR, avgLIndex.LIndex(:,i));
-                ylim([57 68])
-
-            else
-                p = plot(avgHIndex.YEAR, avgHIndex.HIndex(:,i));
-                ylim([80 94])
-            end
-
-            xlim([min(A.YEAR)-1 max(A.YEAR)+1])%xlim([1925 2015])
+            ylim(cell2mat(climLimits(k-1))); %sets the y limits for the climate index (right hand y axis)
+            xlim([min(A.YEAR)-1 max(A.YEAR)+1]) %set the x-axis limites to be the minimum and maximum years of available crop yield data
             hold on
 
-            p.LineWidth = 1.15;
-            p.Color = 'r';
-            if j  == 1 %only for the first loop
-                if useLIndex == 1 %modeling the linear trend for L index across the whole period, before the change point, and after the change point
-                    mdlD = fitlm(avgLIndex.YEAR,avgLIndex.LIndex(:,i));                
-                    mdlD1 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR<=changeP2),avgLIndex.LIndex(avgLIndex.YEAR<=changeP2,i));                 
-                    mdlD2 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR>changeP2),avgLIndex.LIndex(avgLIndex.YEAR>changeP2,i));   
+            p.LineWidth = 1.15; %increases the thinkness of the climate trend line for greater visibility          
 
-                else %modeling the linear trend for H index across the whole period, before the change point, and after the change point
-                    mdlD = fitlm(avgHIndex.YEAR,avgHIndex.HIndex(:,i));                    
-                    mdlD1 = fitlm(avgHIndex.YEAR(avgHIndex.YEAR<=changeP2),avgHIndex.HIndex(avgHIndex.YEAR<=changeP2,i));                  
-                    mdlD2 = fitlm(avgHIndex.YEAR(avgHIndex.YEAR>changeP2),avgHIndex.HIndex(avgHIndex.YEAR>changeP2,i));   
-
-                end
-            end
+       
+     
+            %only calculate the climate trend lines during the first crop
+            %iteration since it doesn't change until the climate index is
+            %changed
+            %if h == 1
+                %the below statements create 3 linear models, 1 for the entire
+                %period (mdlD), 1 for the period after the change point (mdlD1) and
+                %1 after the change point (mdlD2)
+                mdlD = fitlm(B.YEAR,B.Index(:,i));                
+                mdlD1 = fitlm(B.YEAR(B.YEAR<=changeP2),B.Index(B.YEAR<=changeP2,i));                 
+                mdlD2 = fitlm(B.YEAR(B.YEAR>changeP2),B.Index(B.YEAR>changeP2,i));            
+                
+                %calculating and storing the P-Value for Mann-Kindal
+                %non-parametric regression of climate data
+                [tau,pD]=corr(B.YEAR,B.Index(:,i),'type','kendall','rows','complete'); %kendall method
+                F(i,1) = pD;
+                %before the change point
+                [tau,pD2]=corr(B.YEAR(B.YEAR<=changeP1),B.Index(B.YEAR<=changeP1,i),'type','kendall','rows','complete'); %kendall method
+                F(i,2) = pD2;
+                %after the change point
+                [tau,pD3]=corr(B.YEAR(B.YEAR>changeP1),B.Index(B.YEAR>changeP1,i),'type','kendall','rows','complete'); %kendall method
+                F(i,3) = pD3;
+                
+                %storing P-Value for linear climate models
+                F(i,4) = table2array(mdlD.Coefficients(2,1));
+                F(i,5) = table2array(mdlD.Coefficients(2,4));
+                F(i,6) = table2array(mdlD1.Coefficients(2,1));
+                F(i,7) = table2array(mdlD1.Coefficients(2,4));
+                F(i,8) = table2array(mdlD2.Coefficients(2,1));
+                F(i,9) = table2array(mdlD2.Coefficients(2,4));
+            %end
             
+            %plotting all of the trendlines for linear models created for
+            %the climate indices
             zD = plot(mdlD);
             zD1 = plot(mdlD1);
             zD2 = plot(mdlD2);
             
-
+            
+            %adjusting the colors, size and line type of the index
+            %trend lines
             zD(1).Color = 'none'; 
             zD(1).Marker = '.';
             zD(1).MarkerSize = 10;
@@ -1098,196 +1145,185 @@ for h = 1:length(names)
             zD2(2).LineWidth = 1.15;
             zD2(3).Color = 'none';
             zD2(4).Color = 'none';
-
-            if useLIndex == 1
-                ylabel("Average L - Index (days/year)")
-                title(compose(locations(i) + " average L-Index " + string(cell2mat(T(h,1)))+ " Yield vs. year"))
-%                 if i == 1 || 4
-%                     lgd = legend([p b zD(2) zC(2)],{'L-Index','Grain Yield','Trend of H-Index','Trend of Grain Yield'});
-%                 end
-            else
-                ylabel("Average H - Index (days/year)")
-                title(compose(locations(i) +" average H-Index " + string(cell2mat(T(h,1)))+ " Yield vs. year"))
-%                 if i == 1 || 4
-%                     lgd = legend([p b zD(2) zC(2)],{'L-Index','Grain Yield','Trend of H-Index','Trend of Grain Yield'});
-%                 end
-            end 
-            legend off
+               
+            ylabel(compose("Average " + string(cell2mat(T2(k))) + " (days/year)")) %labels the right hand axis with the name of the cliamte index defined by T2 at position k
+            title(compose(locations(i) + " average " + string(cell2mat(T2(k)))+" and "+ string(cell2mat(T(h,1)))+ " Yield vs. year")) %gives each subplot a title with the climate region, climate index used, and crop used
+            
+            legend off %removes the legends automatically made by fitlm graphs
             xlabel('Year')
+                    
         end
-        
+        %stores the statistical results for each crop in D 
+        cropClimateStats = subsasgn(cropClimateStats,S,D);
+        %stores the statistical results for each Index in F. The POR values
+        %don't change with the change in crop, but the Change point does.
+        %so this value must be stores with each shift of the crop loop.
+        S3 = struct('type','.','subs',strcat(S2.subs,'_vs_',S.subs));
+        cropClimateStats = subsasgn(cropClimateStats,S3,F);
         
         %defines the current date
         t = datetime('now');
         t.Format = 'dd.MM.yyyy';
         t = string(t);       
-        
+
         %creates a legend and defines the name of the file that will be
         %saved to location defined later by fname
-        if useLIndex == 1
-            lgd = legend([p b zD(2) zC(2)],{'L-Index','Grain Yield','Trend of L-Index','Trend of Grain Yield'});
-            if j == 1
-                fileName = compose(t + "_LIndex_" +  string(cell2mat(T(h,1)))+"EW_countyYield_subplot");
-            else
-                fileName = compose(t + "_LIndex_" +  string(cell2mat(T(h,1)))+"NS_countyYield_subplot");
-            end
-        else
-            lgd = legend([p b zD(2) zC(2)],{'H-Index','Grain Yield','Trend of H-Index','Trend of Grain Yield'});
-            if j == 1
-                fileName = compose(t + "_HIndex_" +  string(cell2mat(T(h,1)))+"EW_countyYield_subplot.tiff");
-            else
-                fileName = compose(t + "_HIndex_" +  string(cell2mat(T(h,1)))+"NS_countyYield_subplot.tiff");
-            end
-            
-        end
-        lgd.Position(1) = 0.01;
-        lgd.Position(2) = 0.47;
-        
-        
-        
-        
+        %creats a legend for the climate line, the crop bars, the overall
+        %trend line for climate and the overall trend line for crop yield
+        lgd = legend([p b zD(2) zC(2)],{string(cell2mat(T2(k))),compose(string(cell2mat(T(h,1)))+" Yield"),compose("Trend of "+ string(cell2mat(T2(k)))),compose("Trend of "+string(cell2mat(T(h,1)))+ "Yield")});           
+        %creates a single variable to use as the name for the saved figure
+        fileName = compose(t + "_"+ string(cell2mat(T2(k))) +"_" +  string(cell2mat(T(h,1)))+"_countyYield_subplot.tiff");          
+      
+        %places the legend in the bottom right corner of the plot
+        lgd.Position(1) = 0.6;
+        lgd.Position(2) = 0.15;
+        %increase the text size of the legend for better readibility
+        lgd.FontSize = 12;
+        %adjusts the save location based on the crop type
+        %NOTE: this step could be adjusted so that the file path is based
+        %on the current file location so that it doesn't need to be edited
+        %by the user if they want to save the files in a different
+        %location
         if h == 1 || h==2 || h==3
             fname = 'F:\github\HIndex\Outputs\Current Figures\Crop Yield Results\Wheat';
         end
-        
+
         if h == 4||h==5||h==6
             fname = 'F:\github\HIndex\Outputs\Current Figures\Crop Yield Results\Corn';
         end
-        
+
         if h == 7||h==8||h==9
             fname = 'F:\github\HIndex\Outputs\Current Figures\Crop Yield Results\Soybean';
         end
-        
+
         if h == 10||h==11||h==12
             fname = 'F:\github\HIndex\Outputs\Current Figures\Crop Yield Results\Sorghum';
         end
+        
+        %NOTE: add the "close" statement to the loop and it seems to help
        
-        saveas(fig,fullfile(fname,fileName))
         
-        
-        
-    end
+        %saveas(fig,fullfile(fname,fileName)) %saves the current figure in the fname folder with the name defined by "fileName"       
+        %close
+        %NOTE: it might be a good idea to have a script that moves figures
+        %currently in the save destination to a new folder for greater
+        %clarity. That would probably take a bit of work to write though,
+        %so maybe not
+    end   
+    %storing the statistical results in F for each climate 
+   
 end
+O = stack(cropClimateStats,2:length(cropClimateStats.Properties.VariableNames));
+fileName = compose(t + "_"+ "Yield_and_Climate_vs_Year"+"_statistics.csv"); 
+%defines the location of the saved file
+pathName = 'F:\github\HIndex\Outputs\Current Figures\Crop Yield Results';
+%saves the table cropClimateCovariance with the name defined by fileName
+%and the location defined by pathName
 
+%writetable(O, fullfile(pathName,fileName))
+close all
 toc
 %%
-    figure('Name', "TIndex vs Yield, NS")
-    for i = [4 5 6 7]  
-        changeP1 = CP.YEAR(i);
-        changeP2 = changeP1;
-    %     if useLIndex == 1
-    %         changeP2 = climateLCP.YEAR(i);
-    %     else
-    %         changeP2 = climateHCP.YEAR(i);
-    %     end
-        subplot(2,2,i-3)    
-
-        yyaxis left
-        b = bar(avgYield.YEAR,avgYield.YIELD(:,i),1);
-        hold on
-        ylim([0 60])
-
-        mdlC = fitlm(avgYield.YEAR,avgYield.YIELD(:,i));
-        zC = plot(mdlC);
-
-        mdlC1 = fitlm(avgYield.YEAR(avgYield.YEAR<=changeP1),avgYield.YIELD(avgYield.YEAR<=changeP1,i));
-        zC1 = plot(mdlC1);
-
-        mdlC2 = fitlm(avgYield.YEAR(avgYield.YEAR>changeP1),avgYield.YIELD(avgYield.YEAR>changeP1,i));
-        zC2 = plot(mdlC2);
-
-        zC(1).Color = 'none'; 
-        zC(1).Marker = '.';
-        zC(1).MarkerSize = 10;
-        zC(2).Color = 'm';
-        zC(2).LineStyle = '--';
-        zC(2).LineWidth = 1.15;
-        zC(3).Color = 'none';
-        zC(4).Color = 'none'; 
-
-        zC1(1).Color = 'none'; 
-        zC1(1).Marker = '.';
-        zC1(1).MarkerSize = 10;
-        zC1(2).Color = 'm';
-        zC1(2).LineWidth = 1.15;
-        zC1(3).Color = 'none';
-        zC1(4).Color = 'none'; 
-
-        zC2(1).Color = 'none'; 
-        zC2(1).Marker = '.';
-        zC2(1).MarkerSize = 10;
-        zC2(2).Color = 'm';
-        zC2(2).LineWidth = 1.15;
-        zC2(3).Color = 'none';
-        zC2(4).Color = 'none'; 
-        ylabel('Average Wheat Yield (Bu/acre)')
-
-        yyaxis right
-         if useLIndex ==  1
-             p = plot(avgLIndex.YEAR, avgLIndex.LIndex(:,i));
-             ylim([57 68])
-         else
-             p = plot(avgHIndex.YEAR, avgHIndex.HIndex(:,i));
-             ylim([80 94])
-         end
-
-        xlim([1925 2015])
-        hold on
-
-        p.LineWidth = 1.15;
-        p.Color = 'r';
-        if useLIndex == 1
-            mdlD = fitlm(avgLIndex.YEAR,avgLIndex.LIndex(:,i));   
-            zD = plot(mdlD);
-            mdlD1 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR<=changeP2),avgLIndex.LIndex(avgLIndex.YEAR<=changeP2,i));   
-            zD1 = plot(mdlD1);
-            mdlD2 = fitlm(avgLIndex.YEAR(avgLIndex.YEAR>changeP2),avgLIndex.LIndex(avgLIndex.YEAR>changeP2,i));   
-            zD2 = plot(mdlD2);
-        else
-            mdlD = fitlm(avgHIndex.YEAR,avgHIndex.HIndex(:,i));   
-            zD = plot(mdlD); 
-             mdlD1 = fitlm(avgHIndex.YEAR(avgHIndex.YEAR<=changeP2),avgHIndex.HIndex(avgHIndex.YEAR<=changeP2,i));   
-            zD1 = plot(mdlD1);
-            mdlD2 = fitlm(avgHIndex.YEAR(avgHIndex.YEAR>changeP2),avgHIndex.HIndex(avgHIndex.YEAR>changeP2,i));   
-            zD2 = plot(mdlD2);
-        end
-
-        zD(1).Color = 'none'; 
-        zD(1).Marker = '.';
-        zD(1).MarkerSize = 10;
-        zD(2).Color = 'k';
-        zD(2).LineStyle = "--";
-        zD(2).LineWidth = 1.15;
-        zD(3).Color = 'none';
-        zD(4).Color = 'none'; 
-
-        zD1(1).Color = 'none'; 
-        zD1(1).Marker = '.';
-        zD1(1).MarkerSize = 10;
-        zD1(2).Color = 'k';
-        zD1(2).LineWidth = 1.15;
-        zD1(3).Color = 'none';
-        zD1(4).Color = 'none';
-
-        zD2(1).Color = 'none'; 
-        zD2(1).Marker = '.';
-        zD2(1).MarkerSize = 10;
-        zD2(2).Color = 'k';
-        zD2(2).LineWidth = 1.15;
-        zD2(3).Color = 'none';
-        zD2(4).Color = 'none'; 
-
-        if useLIndex == 1
-            ylabel("Average L - Index (days/year)")
-            title(compose(locations(i) + " average L-Index and average wheat yield vs. year"))
-        else
-            ylabel("Average H - Index (days/year)")
-            title(compose(locations(i) +" average H-Index and average wheat yield vs. year"))
-        end 
-        legend off
+tic
+%cropClimateCovariance = table();
+locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"]; %names of each climate region
+X = table(); 
+for k = 2:width(avgClimateIndex) %for each index
+    T2 = avgClimateIndex.Properties.VariableNames; %T2 is a cell array of the variable names (climate indices) in the avgClimateIndex table
+    S2 = struct('type','.','subs',T2(k));
        
-    end
+           
+    for h = 1:length(names) %for each crop  
 
+        T = fieldnames(avgYield); %creates a cell array containing the names of all the crop s in the avgYield structure array
+        S = struct('type','.','subs',T(h,1));
+        for i = 1:length(locations) %for each climate zone
+            A = cell2table(subsref(avgYield,S),'VariableNames',{'YEAR','YIELD'}); %creates a temporary table for the crop yield stored in the avgYield structure array
+            B = table(avgClimateIndex.YEAR, subsref(avgClimateIndex,S2),'VariableNames',{'YEAR','Index'});           
+            
+            E = cell2table(subsref(cropCP,S)); %temporary table 
+            changeP1 = E.Var2(i); %this is the change point for the crop yield
+            changeP2 = changeP1; %this is the year of the change point for the climate lines, this is currently set to be the same change point as the crop yield change point
+            
+                       
+            %this loop moves the values in yield values in table A to the same
+            %years where those yields occur in table B. This makes it easir
+            %to use fitlm, since it allows the two data sets to be easily
+            %limited to the same sized vector
+            for y = 1:length(A.YEAR) %for each year in A
+                for j = 1:length(B.YEAR) %for each year in B
+                    if B.YEAR(j) == A.YEAR(y) %if the year position j of table B is the same as the year at position y of table A
+                       %create a new column in table B name YIELD and set 
+                       %all of the columns at row j in B to be equal to all 
+                       %the columns in the YIELD variable of row y in table
+                       %A
+                        B.YIELD(j,:) = A.YIELD(y,:); 
+                    end
+                end             
+            end
+           B.YIELD(B.YIELD==0) = NaN; %sets all of the values in the YIELD variable 
+           %that are equal to 0 to be equal to NaN instead. This makes
+           %ignoring these values easier in the next step
+           C = B(~isnan(B.YIELD(:,i)),:);
+           %creates a linear model with the climate index as the x axis and
+           %the crop yield as the y axis. The model only compares years for
+           %which both there is a crop yield and climate information
+           
+           mdlL = fitlm(C.Index(:,i),C.YIELD(:,i));
+           mdlL1 = fitlm(C.Index(C.YEAR<=changeP1,i),C.YIELD(C.YEAR<=changeP1,i));
+           if i == 3 && h == 2
+                mdlL2 = mdlL; 
+           else             
+               mdlL2 = fitlm(C.Index(C.YEAR>=changeP1,i),C.YIELD(C.YEAR>=changeP1,i));
+           end
+           % mdlF1 = fitlm(B.Index( ~isnan(B.YIELD(:,i))) <=changeP,i));                 
+%             mdlF2 = fitlm(B.Index(A.YIELD(:,i)>changeP,i));
+           %total period
+           x(i,1) = table2array(mdlL.Coefficients(2,1)); %slope
+           x(i,2) = table2array(mdlL.Coefficients(2,4)); %P-Value
+           x(i,3) = mdlL.Rsquared.Ordinary; %Rsquared
+           %before CP
+           x(i,4) = table2array(mdlL1.Coefficients(2,1)); %slope
+           x(i,5) = table2array(mdlL1.Coefficients(2,4)); %P-Value
+           x(i,6) = mdlL1.Rsquared.Ordinary; %Rsquared
+           %after CP
+           x(i,7) = table2array(mdlL2.Coefficients(2,1)); %slope
+           x(i,8) = table2array(mdlL2.Coefficients(2,4)); %P-Value
+           x(i,9) = mdlL2.Rsquared.Ordinary; %Rsquared
+           
+           x(i,11) = C
+           x(i,11) = changeP1;
+        end
+        %create a new structure variable, S3, with type 'dot' and a subs
+        %that of the form "climate_index_name vs crop_name"
+        S3 = struct('type','.','subs',strcat(S2.subs,'_vs_',S.subs));
+        
+        %stores statistics from x in a column samed by S3 in the table
+        %cropClimateCovariance
+        X = subsasgn(X,S3,x);
+        
+        
+    end
+    X.Properties.RowNames = locations;
+   
+end
+X = stack(X,1:length(X.Properties.VariableNames));
+X = addvars(X,X.Properties.RowNames,'before',X.Properties.VariableNames(2));
+%X = sortrows(X);
+cropClimateCovariance = renamevars(X,X.Properties.VariableNames,["Index_vs_Crop","Region","Statistics"]);
+
+%defines the current date
+t = datetime('now');
+t.Format = 'dd.MM.yyyy';
+t = string(t);
+%defines the name of the saved file
+fileName = compose(t + "_"+ "climate index" +"_vs_" +  "crop yield"+"_statistics.csv"); 
+%defines the location of the saved file
+pathName = 'F:\github\HIndex\Outputs\Current Figures\Crop Yield Results';
+%saves the table cropClimateCovariance with the name defined by fileName
+%and the location defined by pathName
+writetable(cropClimateCovariance, fullfile(pathName,fileName))
+toc
 %% 4.0.2 Graphing H-index decadal analysis
 %creates a bar graph with the average H index for each decade between 1911
 %and 2010
