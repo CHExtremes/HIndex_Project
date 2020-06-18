@@ -569,9 +569,9 @@ for k = 1:6
 
         meanB = B;
         meanB.Index(:) = mean(B.Index);
-        zB = plot(meanB.YEAR, meanB.Index);
-        zB.Color = 'r';  
-        zB.LineWidth = 1.15;
+        %zB = plot(meanB.YEAR, meanB.Index);
+        %zB.Color = 'r';  
+        %zB.LineWidth = 1.15;
         %below are changes to the colors and markers of the plot for additional
         %clarity I removed 95% error bars (z(3) and z(4) to make the graph less cluttered. We
         %can turn these on later if we want to visually analyze the error
@@ -579,7 +579,7 @@ for k = 1:6
         zA(1).Color = 'none'; %point color changed to make them invisible for less busy graphs%'#D95319'; %sets data points to be orange
         zA(1).Marker = '.';
         zA(1).MarkerSize = 10;
-        zA(2).Color = 'g';
+        zA(2).Color = 'r';
         zA(2).LineWidth = 1.15;
         zA(3).Color = 'none';
         zA(4).Color = 'none'; 
@@ -715,7 +715,7 @@ for k = 1:6
         %period of record. Color is magenta, style is dashed line, line
         %width slightly thicker than standard.
         l = yline(Results.meanPOR(i));
-        l.Color = ('m');
+        l.Color = ('k');
         l.LineWidth = 1.25;
         l.LineStyle = '--';
         %stores results for a specific period (SP) defined in variable B by
@@ -742,7 +742,7 @@ end
 %want to use it over manually saving graphs.
 %set(gcf,'PaperPositionMode','auto') %set the print area same as paper
 %print('-dtiff','-r600', '12.3.19_H_Index_Subplots')
-%% 4.0.1 Calculating time series vs. yearly average grain yield
+%% 5.1 Calculating time series vs. yearly average grain yield
 %This section compares average grain yield to average H-index for every
 %year from y1 to y2 
 y1 = 1908; %smallest year for climate data
@@ -809,7 +809,7 @@ for h = 1:length(names)
 end
 
 %avgYield(isnan(avgYield.YIELD(:,1)),:) = [];
-%% 4.0.2.1 Sorting data and Pettitt test
+%% 5.2.1 Sorting data and Pettitt test
 
 clc
 %creat CP as a temporary table to store information and cropCP as a
@@ -870,7 +870,7 @@ for h = 1:length(names) %for the number of crops described in names
         K = 0;
     end
 end
-%% 4.0.2.2 Climite calculations for Pettitt
+%% 5.2.2 Climite calculations for Pettitt
 
 CP = table();
 T = avgClimateIndex.Properties.VariableNames; %creates a cell array of the Index Names used in avgClimateIndex
@@ -922,7 +922,7 @@ for l = 2:width(avgClimateIndex) %for each index used
 end
 
         
-%% 4.0.2 Graphing time series vs. Yearly Average Grain Yield
+%% 5.2.3 Graphing time series vs. Yearly Average Grain Yield
 %expected run time ~200 seconds
 tic
 locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"]; %names of each climate region
@@ -1223,12 +1223,12 @@ pathName = 'F:\github\HIndex\Outputs\Current Figures\Crop Yield Results';
 %writetable(O, fullfile(pathName,fileName))
 close all
 toc
-%%
+%% 5.3 Calculating Index VS. Grain Yield
 tic
 %cropClimateCovariance = table();
 locations = ["western", "east-west central", "eastern", "northern", "north-south central", "southern", "statewide"]; %names of each climate region
 X = table(); 
-for k = 2:width(avgClimateIndex) %for each index
+for k = 2:width(avgClimateIndex) %for each index, currently set to run for H and W-index(mm)
     T2 = avgClimateIndex.Properties.VariableNames; %T2 is a cell array of the variable names (climate indices) in the avgClimateIndex table
     S2 = struct('type','.','subs',T2(k));
        
@@ -1265,19 +1265,26 @@ for k = 2:width(avgClimateIndex) %for each index
            %that are equal to 0 to be equal to NaN instead. This makes
            %ignoring these values easier in the next step
            C = B(~isnan(B.YIELD(:,i)),:);
+           
            %creates a linear model with the climate index as the x axis and
            %the crop yield as the y axis. The model only compares years for
            %which both there is a crop yield and climate information
-           
            mdlL = fitlm(C.Index(:,i),C.YIELD(:,i));
            mdlL1 = fitlm(C.Index(C.YEAR<=changeP1,i),C.YIELD(C.YEAR<=changeP1,i));
+           %this if statement deals with there being no data for irrigated winter wheat in eastern KS
            if i == 3 && h == 2
-                mdlL2 = mdlL; 
+               mdlL2 = mdlL; 
            else             
                mdlL2 = fitlm(C.Index(C.YEAR>=changeP1,i),C.YIELD(C.YEAR>=changeP1,i));
            end
-           % mdlF1 = fitlm(B.Index( ~isnan(B.YIELD(:,i))) <=changeP,i));                 
-%             mdlF2 = fitlm(B.Index(A.YIELD(:,i)>changeP,i));
+
+           plot(mdlL)
+           hold on
+           plot(mdlL1)
+           hold on
+           plot(mdlL2)
+           hold off
+           
            %total period
            x(i,1) = table2array(mdlL.Coefficients(2,1)); %slope
            x(i,2) = table2array(mdlL.Coefficients(2,4)); %P-Value
@@ -1321,11 +1328,13 @@ t = string(t);
 fileName = compose(t + "_"+ "climate index" +"_vs_" +  "crop yield"+"_statistics.csv"); 
 %defines the location of the saved file
 pathName = 'F:\github\HIndex\Outputs\Current Figures\Crop Yield Results';
+
 %saves the table cropClimateCovariance with the name defined by fileName
 %and the location defined by pathName
-writetable(cropClimateCovariance, fullfile(pathName,fileName))
+%writetable(cropClimateCovariance, fullfile(pathName,fileName))
+
 toc
-%% 4.0.2 Graphing H-index decadal analysis
+%% 4.1.0 Graphing H-index decadal analysis
 %creates a bar graph with the average H index for each decade between 1911
 %and 2010
 % useLIndex = 1;
